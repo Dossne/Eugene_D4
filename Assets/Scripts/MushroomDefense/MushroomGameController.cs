@@ -18,9 +18,15 @@ namespace MushroomDefense
         private const float GridWidthScreenFraction = 0.6f;
         private const float WaveDelaySeconds = 60f;
         private const int MaxWaves = 10;
-        private const float MushroomScale = 0.55f;
+        private const float MushroomScale = 0.53f;
+        private const float TileGapInTileWidths = 0.1f;
         // 0 = bottom edge of tile, 1 = top edge of tile
         private const float MushroomVisualYInCell = 0.3f;
+        private const float ActionButtonWorldOffsetXInCell = 0.3f;
+        private const float ActionButtonWorldOffsetYInCell = 0.35f;
+        private const float ActionButtonVerticalGap = -6f;
+        private const float ButtonWidth = 100f;
+        private const float ButtonHeight = 72f;
 
         private const int SpawnCost = 15;
         private const int HealCost = 12;
@@ -51,6 +57,10 @@ namespace MushroomDefense
         private Sprite _tileSprite;
         private Sprite _backgroundSprite;
         private Sprite _buttonSprite;
+        private Sprite _upgradeButtonSprite;
+        private Sprite _coinSprite;
+        private Sprite _arrowSprite;
+        private Sprite _heartSprite;
         private Sprite[] _mushroomSprites;
         private Sprite[] _tickSprites;
         private Sprite[] _mosquitoSprites;
@@ -63,6 +73,8 @@ namespace MushroomDefense
         private bool _waveInProgress;
         private bool _gameEnded;
         private float _cellSize = 1.8f;
+        private float _cellGap;
+        private float _cellStep;
         private Vector2 _gridOrigin;
         private float _gridWorldWidth;
         private float _gridWorldHeight;
@@ -80,6 +92,9 @@ namespace MushroomDefense
         private Button _spawnButton;
         private Button _upgradeButton;
         private Button _healButton;
+        private Text _spawnCostText;
+        private Text _upgradeCostText;
+        private Text _healCostText;
         private GameObject _endPanel;
         private Text _endTitle;
 
@@ -136,6 +151,10 @@ namespace MushroomDefense
             _tileSprite = LoadEditorSprite("Assets/Art/tile.png") ?? _fallbackSprite;
             _backgroundSprite = LoadEditorSprite("Assets/Art/bkg.png") ?? _fallbackSprite;
             _buttonSprite = LoadEditorSprite("Assets/Art/button_blue.png");
+            _upgradeButtonSprite = LoadEditorSprite("Assets/Art/Upgrade.png") ?? _buttonSprite;
+            _coinSprite = LoadEditorSprite("Assets/Art/coin.png");
+            _arrowSprite = LoadEditorSprite("Assets/Art/arrow.png");
+            _heartSprite = LoadEditorSprite("Assets/Art/heart.png");
 
             _mushroomSprites = new[]
             {
@@ -178,10 +197,14 @@ namespace MushroomDefense
             background.transform.position = new Vector3(cameraPos.x, cameraPos.y, 0f);
             background.transform.localScale = GetBackgroundScale(viewportWidth, viewportHeight);
 
-            _cellSize = (viewportWidth * GridWidthScreenFraction) / GridWidth;
+            var desiredGridWidth = viewportWidth * GridWidthScreenFraction;
+            var sizeDivisor = GridWidth + (GridWidth - 1) * TileGapInTileWidths;
+            _cellSize = desiredGridWidth / sizeDivisor;
+            _cellGap = _cellSize * TileGapInTileWidths;
+            _cellStep = _cellSize + _cellGap;
 
-            _gridWorldWidth = _cellSize * GridWidth;
-            _gridWorldHeight = _cellSize * GridHeight;
+            _gridWorldWidth = _cellSize * GridWidth + _cellGap * (GridWidth - 1);
+            _gridWorldHeight = _cellSize * GridHeight + _cellGap * (GridHeight - 1);
             var gridCenterY = -viewportHeight * 0.12f;
             _gridOrigin = new Vector2(
                 -_gridWorldWidth * 0.5f + _cellSize * 0.5f,
@@ -204,7 +227,7 @@ namespace MushroomDefense
                         : Vector2.one;
                     collider.offset = _tileSprite.bounds.center;
 
-                    var pos = _gridOrigin + new Vector2(x * _cellSize, y * _cellSize);
+                    var pos = _gridOrigin + new Vector2(x * _cellStep, y * _cellStep);
                     cellObject.transform.position = new Vector3(pos.x, pos.y, 0f);
 
                     var cell = new CellData { WorldPosition = pos, Renderer = renderer, Collider = collider };
@@ -262,7 +285,7 @@ namespace MushroomDefense
 
         private void OnDrawGizmos()
         {
-            if (_cellSize <= 0f || _gridWorldWidth <= 0f || _gridWorldHeight <= 0f)
+            if (_cellSize <= 0f || _cellStep <= 0f || _gridWorldWidth <= 0f || _gridWorldHeight <= 0f)
             {
                 return;
             }
@@ -274,16 +297,13 @@ namespace MushroomDefense
             Gizmos.DrawWireCube((min + max) * 0.5f, new Vector3(_gridWorldWidth, _gridWorldHeight, 0f));
 
             Gizmos.color = Color.yellow;
-            for (var x = 0; x <= GridWidth; x++)
+            for (var y = 0; y < GridHeight; y++)
             {
-                var worldX = min.x + x * _cellSize;
-                Gizmos.DrawLine(new Vector3(worldX, min.y, 0f), new Vector3(worldX, max.y, 0f));
-            }
-
-            for (var y = 0; y <= GridHeight; y++)
-            {
-                var worldY = min.y + y * _cellSize;
-                Gizmos.DrawLine(new Vector3(min.x, worldY, 0f), new Vector3(max.x, worldY, 0f));
+                for (var x = 0; x < GridWidth; x++)
+                {
+                    var center = new Vector2(min.x + _cellSize * 0.5f + x * _cellStep, min.y + _cellSize * 0.5f + y * _cellStep);
+                    Gizmos.DrawWireCube(center, new Vector3(_cellSize, _cellSize, 0f));
+                }
             }
         }
 
@@ -301,9 +321,12 @@ namespace MushroomDefense
             _warningText = CreateText("Warning", new Vector2(0.5f, 0.8f), new Vector2(0f, 0f), TextAnchor.MiddleCenter, 34);
             _warningText.color = new Color(1f, 0.3f, 0.3f, 0f);
 
-            _spawnButton = CreateButton("Spawn Mushroom", new Vector2(1f, 0f), new Vector2(-150f, 120f), SpawnMushroomOnSelectedCell);
-            _upgradeButton = CreateButton("Upgrade", new Vector2(1f, 0f), new Vector2(-150f, 70f), UpgradeSelectedMushroom);
-            _healButton = CreateButton("Heal", new Vector2(1f, 0f), new Vector2(-150f, 20f), HealSelectedMushroom);
+            _spawnButton = CreateActionButton("Spawn", new Vector2(1f, 0f), new Vector2(-150f, 120f), SpawnMushroomOnSelectedCell, _mushroomSprites[0], out _spawnCostText);
+            _upgradeButton = CreateActionButton("Upgrade", new Vector2(1f, 0f), new Vector2(-150f, 70f), UpgradeSelectedMushroom, _arrowSprite, out _upgradeCostText, null, _upgradeButtonSprite);
+            _healButton = CreateActionButton("Heal", new Vector2(1f, 0f), new Vector2(-150f, 20f), HealSelectedMushroom, _heartSprite, out _healCostText);
+            ConfigureActionButtonRect(_spawnButton);
+            ConfigureActionButtonRect(_upgradeButton);
+            ConfigureActionButtonRect(_healButton);
 
             _endPanel = new GameObject("EndPanel");
             _endPanel.transform.SetParent(_canvas.transform, false);
@@ -701,9 +724,74 @@ namespace MushroomDefense
             _waveText.text = $"Wave: {_currentWave}/{MaxWaves}";
             _nextWaveText.text = _waveInProgress ? $"Enemies alive: {_enemies.Count}" : $"Next wave in: {Mathf.CeilToInt(Mathf.Max(0f, _timeToNextWave))}s";
 
+            if (_spawnCostText != null) _spawnCostText.text = SpawnCost.ToString();
+            if (_upgradeCostText != null)
+            {
+                var upgradePrice = (_selectedMushroom != null && _selectedMushroom.Level < 4)
+                    ? _upgradeCostByLevel[_selectedMushroom.Level]
+                    : _upgradeCostByLevel[1];
+                _upgradeCostText.text = upgradePrice.ToString();
+            }
+            if (_healCostText != null) _healCostText.text = HealCost.ToString();
+
             _spawnButton.gameObject.SetActive(_selectionType == SelectionType.EmptyCell);
             _upgradeButton.gameObject.SetActive(_selectionType == SelectionType.Mushroom && !_waveInProgress && _selectedMushroom != null && _selectedMushroom.Level < 4);
             _healButton.gameObject.SetActive(_selectionType == SelectionType.Mushroom && !_waveInProgress && _selectedMushroom != null && _selectedMushroom.Health < GetMushroomMaxHp(_selectedMushroom.Level));
+            UpdateActionButtonsPosition();
+        }
+
+        private void ConfigureActionButtonRect(Button button)
+        {
+            var rect = button.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0f, 0.5f);
+        }
+
+        private void UpdateActionButtonsPosition()
+        {
+            var canvasRect = _canvas.GetComponent<RectTransform>();
+            var anchorWorld = GetActionAnchorWorldPosition();
+            var rightWorld = anchorWorld
+                + Vector2.right * (_cellSize * ActionButtonWorldOffsetXInCell)
+                + Vector2.up * (_cellSize * ActionButtonWorldOffsetYInCell);
+
+            var rightScreen = _mainCamera.WorldToScreenPoint(rightWorld);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, rightScreen, null, out var localPoint);
+
+            var spawnRect = _spawnButton.GetComponent<RectTransform>();
+            var upgradeRect = _upgradeButton.GetComponent<RectTransform>();
+            var healRect = _healButton.GetComponent<RectTransform>();
+
+            spawnRect.anchoredPosition = localPoint;
+
+            var visibleCount = (_upgradeButton.gameObject.activeSelf ? 1 : 0) + (_healButton.gameObject.activeSelf ? 1 : 0);
+            if (visibleCount == 2)
+            {
+                var dy = ButtonHeight + ActionButtonVerticalGap;
+                upgradeRect.anchoredPosition = localPoint;
+                healRect.anchoredPosition = localPoint + Vector2.down * dy;
+            }
+            else
+            {
+                if (_upgradeButton.gameObject.activeSelf) upgradeRect.anchoredPosition = localPoint;
+                if (_healButton.gameObject.activeSelf) healRect.anchoredPosition = localPoint;
+            }
+        }
+
+        private Vector2 GetActionAnchorWorldPosition()
+        {
+            if (_selectionType == SelectionType.EmptyCell && _selectedCell != null)
+            {
+                return GetCellCenter(_selectedCell);
+            }
+
+            if (_selectionType == SelectionType.Mushroom && _selectedMushroom != null)
+            {
+                return GetCellCenter(_selectedMushroom.Cell);
+            }
+
+            return Vector2.zero;
         }
 
         private Text CreateText(string name, Vector2 anchor, Vector2 offset, TextAnchor align, int fontSize, Transform parent = null)
@@ -728,7 +816,65 @@ namespace MushroomDefense
             return text;
         }
 
-        private Button CreateButton(string label, Vector2 anchor, Vector2 offset, UnityEngine.Events.UnityAction onClick, Transform parent = null)
+        private Button CreateActionButton(
+            string label,
+            Vector2 anchor,
+            Vector2 offset,
+            UnityEngine.Events.UnityAction onClick,
+            Sprite leftIcon,
+            out Text costText,
+            Transform parent = null,
+            Sprite backgroundSprite = null)
+        {
+            var button = CreateButton(label, anchor, offset, onClick, parent, backgroundSprite);
+            var root = button.GetComponent<RectTransform>();
+
+            foreach (Transform child in root)
+            {
+                if (child.name == "Label")
+                {
+                    var labelText = child.GetComponent<Text>();
+                    labelText.text = string.Empty;
+                    break;
+                }
+            }
+
+            if (leftIcon != null)
+            {
+                CreateButtonImage("LeftIcon", root, leftIcon, new Vector2(0.24f, 0.5f), new Vector2(26f, 26f));
+            }
+
+            costText = CreateText("Cost", new Vector2(0.64f, 0.5f), Vector2.zero, TextAnchor.MiddleRight, 20, root);
+            costText.rectTransform.sizeDelta = new Vector2(42f, ButtonHeight);
+            costText.text = "0";
+
+            if (_coinSprite != null)
+            {
+                CreateButtonImage("CoinIcon", root, _coinSprite, new Vector2(0.84f, 0.5f), new Vector2(20f, 20f));
+            }
+
+            return button;
+        }
+
+        private static Image CreateButtonImage(string name, Transform parent, Sprite sprite, Vector2 anchor, Vector2 size)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = anchor;
+            rect.anchorMax = anchor;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = size;
+
+            var image = go.AddComponent<Image>();
+            image.sprite = sprite;
+            image.color = Color.white;
+            image.preserveAspect = true;
+            return image;
+        }
+
+        private Button CreateButton(string label, Vector2 anchor, Vector2 offset, UnityEngine.Events.UnityAction onClick, Transform parent = null, Sprite backgroundSprite = null)
         {
             var go = new GameObject($"Button_{label}");
             go.transform.SetParent(parent == null ? _canvas.transform : parent, false);
@@ -738,13 +884,14 @@ namespace MushroomDefense
             rect.anchorMax = anchor;
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = offset;
-            rect.sizeDelta = new Vector2(220f, 42f);
+            rect.sizeDelta = new Vector2(ButtonWidth, ButtonHeight);
 
             var image = go.AddComponent<Image>();
             image.color = Color.white;
-            if (_buttonSprite != null)
+            var sprite = backgroundSprite != null ? backgroundSprite : _buttonSprite;
+            if (sprite != null)
             {
-                image.sprite = _buttonSprite;
+                image.sprite = sprite;
                 image.type = Image.Type.Sliced;
             }
 
