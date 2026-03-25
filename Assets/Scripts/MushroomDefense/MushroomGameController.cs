@@ -25,8 +25,13 @@ namespace MushroomDefense
         private const float ActionButtonWorldOffsetXInCell = 0.3f;
         private const float ActionButtonWorldOffsetYInCell = 0.35f;
         private const float ActionButtonVerticalGap = -6f;
-        private const float ButtonWidth = 100f;
-        private const float ButtonHeight = 72f;
+        private const float ButtonWidth = 200f;
+        private const float ButtonHeight = 100f;
+        private const float SpawnIconScaleFactor = 0.75f;
+        private const float CoinIconScaleFactor = 1.2f;
+        private const float LeftSideWidthRatio = 0.45f;
+        // 0 = bottom edge of button, 1 = top edge of button
+        private const float LeftIconVerticalNormalized = 0.55f;
 
         private const int SpawnCost = 15;
         private const int HealCost = 12;
@@ -61,6 +66,7 @@ namespace MushroomDefense
         private Sprite _coinSprite;
         private Sprite _arrowSprite;
         private Sprite _heartSprite;
+        private Sprite _spawnButtonIconSprite;
         private Sprite[] _mushroomSprites;
         private Sprite[] _tickSprites;
         private Sprite[] _mosquitoSprites;
@@ -155,6 +161,7 @@ namespace MushroomDefense
             _coinSprite = LoadEditorSprite("Assets/Art/coin.png");
             _arrowSprite = LoadEditorSprite("Assets/Art/arrow.png");
             _heartSprite = LoadEditorSprite("Assets/Art/heart.png");
+            _spawnButtonIconSprite = LoadEditorSprite("Assets/Art/spawn.png");
 
             _mushroomSprites = new[]
             {
@@ -163,6 +170,10 @@ namespace MushroomDefense
                 LoadEditorSprite("Assets/Art/Mushrooms/mushroom_3.png") ?? _fallbackSprite,
                 LoadEditorSprite("Assets/Art/Mushrooms/mushroom_4.png") ?? _fallbackSprite
             };
+            if (_spawnButtonIconSprite == null)
+            {
+                _spawnButtonIconSprite = _mushroomSprites[0];
+            }
             _tickSprites = new[]
             {
                 LoadEditorSprite("Assets/Art/Ticks/tick_1.png") ?? _fallbackSprite,
@@ -321,7 +332,7 @@ namespace MushroomDefense
             _warningText = CreateText("Warning", new Vector2(0.5f, 0.8f), new Vector2(0f, 0f), TextAnchor.MiddleCenter, 34);
             _warningText.color = new Color(1f, 0.3f, 0.3f, 0f);
 
-            _spawnButton = CreateActionButton("Spawn", new Vector2(1f, 0f), new Vector2(-150f, 120f), SpawnMushroomOnSelectedCell, _mushroomSprites[0], out _spawnCostText);
+            _spawnButton = CreateActionButton("Spawn", new Vector2(1f, 0f), new Vector2(-150f, 120f), SpawnMushroomOnSelectedCell, _spawnButtonIconSprite, out _spawnCostText);
             _upgradeButton = CreateActionButton("Upgrade", new Vector2(1f, 0f), new Vector2(-150f, 70f), UpgradeSelectedMushroom, _arrowSprite, out _upgradeCostText, null, _upgradeButtonSprite);
             _healButton = CreateActionButton("Heal", new Vector2(1f, 0f), new Vector2(-150f, 20f), HealSelectedMushroom, _heartSprite, out _healCostText);
             ConfigureActionButtonRect(_spawnButton);
@@ -841,22 +852,47 @@ namespace MushroomDefense
 
             if (leftIcon != null)
             {
-                CreateButtonImage("LeftIcon", root, leftIcon, new Vector2(0.24f, 0.5f), new Vector2(26f, 26f));
+                var leftWidth = ButtonWidth * LeftSideWidthRatio;
+                var sidePadding = Mathf.Max(4f, ButtonWidth * 0.04f);
+                var verticalPadding = Mathf.Max(4f, ButtonHeight * 0.1f);
+                var leftIconSize = Mathf.Min(leftWidth - sidePadding * 2f, ButtonHeight - verticalPadding * 2f);
+                leftIconSize *= SpawnIconScaleFactor;
+                var leftCenterX = LeftSideWidthRatio * 0.5f;
+                CreateButtonImage("LeftIcon", root, leftIcon, new Vector2(leftCenterX, LeftIconVerticalNormalized), new Vector2(leftIconSize, leftIconSize), false);
             }
 
-            costText = CreateText("Cost", new Vector2(0.64f, 0.5f), Vector2.zero, TextAnchor.MiddleRight, 20, root);
-            costText.rectTransform.sizeDelta = new Vector2(42f, ButtonHeight);
+            var rightStartX = LeftSideWidthRatio;
+            var rightWidthRatio = 1f - LeftSideWidthRatio;
+            var rightHalfCenterX = rightStartX + rightWidthRatio * 0.5f;
+            const float costCoinGap = -14f;
+            var rightHalfWidth = ButtonWidth * rightWidthRatio;
+            var rightSidePadding = Mathf.Max(4f, ButtonWidth * 0.04f);
+            var rightVerticalPadding = Mathf.Max(4f, ButtonHeight * 0.1f);
+            var rightUsableWidth = Mathf.Max(20f, rightHalfWidth - rightSidePadding * 2f);
+            var maxCoinByHeight = ButtonHeight - rightVerticalPadding * 2f;
+            var coinSize = Mathf.Min(maxCoinByHeight, rightUsableWidth * 0.38f);
+            coinSize *= CoinIconScaleFactor;
+            var costWidth = Mathf.Max(20f, rightUsableWidth - coinSize - costCoinGap);
+            var costFontSize = Mathf.Max(18, Mathf.RoundToInt(ButtonHeight * 0.28f));
+
+            costText = CreateText("Cost", new Vector2(rightHalfCenterX, LeftIconVerticalNormalized), Vector2.zero, TextAnchor.MiddleRight, costFontSize, root);
+            costText.rectTransform.pivot = new Vector2(1f, 0.5f);
+            costText.rectTransform.anchoredPosition = new Vector2(-(coinSize * 0.5f + costCoinGap * 0.5f), 0f);
+            costText.rectTransform.sizeDelta = new Vector2(costWidth, ButtonHeight);
             costText.text = "0";
 
             if (_coinSprite != null)
             {
-                CreateButtonImage("CoinIcon", root, _coinSprite, new Vector2(0.84f, 0.5f), new Vector2(20f, 20f));
+                var coin = CreateButtonImage("CoinIcon", root, _coinSprite, new Vector2(rightHalfCenterX, LeftIconVerticalNormalized), new Vector2(coinSize, coinSize), true);
+                var coinRect = coin.GetComponent<RectTransform>();
+                coinRect.pivot = new Vector2(0f, 0.5f);
+                coinRect.anchoredPosition = new Vector2(costCoinGap * 0.5f, 0f);
             }
 
             return button;
         }
 
-        private static Image CreateButtonImage(string name, Transform parent, Sprite sprite, Vector2 anchor, Vector2 size)
+        private static Image CreateButtonImage(string name, Transform parent, Sprite sprite, Vector2 anchor, Vector2 size, bool compensateVerticalPivot)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -864,7 +900,7 @@ namespace MushroomDefense
             rect.anchorMin = anchor;
             rect.anchorMax = anchor;
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = Vector2.zero;
+            rect.anchoredPosition = compensateVerticalPivot ? GetVerticalPivotCompensation(sprite, size) : Vector2.zero;
             rect.sizeDelta = size;
 
             var image = go.AddComponent<Image>();
@@ -872,6 +908,18 @@ namespace MushroomDefense
             image.color = Color.white;
             image.preserveAspect = true;
             return image;
+        }
+
+        private static Vector2 GetVerticalPivotCompensation(Sprite sprite, Vector2 rectSize)
+        {
+            if (sprite == null || sprite.rect.height <= Mathf.Epsilon)
+            {
+                return Vector2.zero;
+            }
+
+            var normalizedPivotY = sprite.pivot.y / sprite.rect.height;
+            var yOffset = (0.5f - normalizedPivotY) * rectSize.y;
+            return new Vector2(0f, yOffset);
         }
 
         private Button CreateButton(string label, Vector2 anchor, Vector2 offset, UnityEngine.Events.UnityAction onClick, Transform parent = null, Sprite backgroundSprite = null)
