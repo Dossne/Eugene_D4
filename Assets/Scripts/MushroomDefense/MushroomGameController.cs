@@ -99,7 +99,7 @@ namespace MushroomDefense
         private const int SpawnCost = 20;
         private const int HealCost = 16;
 
-        private readonly int[] _upgradeCostByLevel = { 0, 30, 70, 260 };
+        private readonly int[] _upgradeCostByLevel = { 0, 30, 91, 260 };
 
         private readonly float[] _mushroomMaxHp = { 30f, 50f, 80f, 120f };
         private readonly float[] _mushroomDamage = { 4f, 6f, 9f, 14f };
@@ -1302,6 +1302,7 @@ namespace MushroomDefense
 
             var popupRoot = new GameObject("CurrencyPopup");
             popupRoot.transform.SetParent(_canvas.transform, false);
+            ConfigurePopupRoot(popupRoot);
             var popupRect = popupRoot.AddComponent<RectTransform>();
             popupRect.anchorMin = new Vector2(0.5f, 0.5f);
             popupRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1312,6 +1313,7 @@ namespace MushroomDefense
             amountText.text = $"+{amount}";
             amountText.color = new Color(1f, 0.98f, 0.78f, 1f);
             amountText.fontStyle = FontStyle.Bold;
+            amountText.raycastTarget = false;
             var amountOutline = amountText.gameObject.AddComponent<Outline>();
             amountOutline.effectColor = new Color(0f, 0f, 0f, 0.95f);
             amountOutline.effectDistance = new Vector2(1.5f, -1.5f);
@@ -1341,6 +1343,7 @@ namespace MushroomDefense
             iconImage.sprite = _coinSprite ?? _fallbackSprite;
             iconImage.preserveAspect = true;
             iconImage.color = Color.white;
+            iconImage.raycastTarget = false;
 
             _currencyPopups.Add(new CurrencyPopupData
             {
@@ -1409,6 +1412,7 @@ namespace MushroomDefense
 
             var popupRoot = new GameObject("EnemyDamagePopup");
             popupRoot.transform.SetParent(_canvas.transform, false);
+            ConfigurePopupRoot(popupRoot);
             var popupRect = popupRoot.AddComponent<RectTransform>();
             popupRect.anchorMin = new Vector2(0.5f, 0.5f);
             popupRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1419,6 +1423,7 @@ namespace MushroomDefense
             amountText.text = $"-{FormatDamageValue(damage)}";
             amountText.fontStyle = FontStyle.Bold;
             amountText.color = new Color(0.2f, 1f, 0.28f, 1f);
+            amountText.raycastTarget = false;
             amountText.resizeTextForBestFit = true;
             amountText.resizeTextMinSize = 14;
             amountText.resizeTextMaxSize = 42;
@@ -1454,6 +1459,7 @@ namespace MushroomDefense
 
             var popupRoot = new GameObject("MushroomDamagePopup");
             popupRoot.transform.SetParent(_canvas.transform, false);
+            ConfigurePopupRoot(popupRoot);
             var popupRect = popupRoot.AddComponent<RectTransform>();
             popupRect.anchorMin = new Vector2(0.5f, 0.5f);
             popupRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1464,6 +1470,7 @@ namespace MushroomDefense
             amountText.text = $"-{FormatDamageValue(damage)}";
             amountText.fontStyle = FontStyle.Bold;
             amountText.color = new Color(1f, 0.18f, 0.18f, 1f);
+            amountText.raycastTarget = false;
             amountText.resizeTextForBestFit = true;
             amountText.resizeTextMinSize = 14;
             amountText.resizeTextMaxSize = 42;
@@ -1826,7 +1833,19 @@ namespace MushroomDefense
             _spawnButton.gameObject.SetActive(_selectionType == SelectionType.EmptyCell && !_waveInProgress);
             _upgradeButton.gameObject.SetActive(_selectionType == SelectionType.Mushroom && !_waveInProgress && _selectedMushroom != null && _selectedMushroom.Level < 4);
             _healButton.gameObject.SetActive(_selectionType == SelectionType.Mushroom && !_waveInProgress && _selectedMushroom != null && _selectedMushroom.Health < GetMushroomMaxHp(_selectedMushroom.Level));
+            _spawnButton.transform.SetAsLastSibling();
+            _upgradeButton.transform.SetAsLastSibling();
+            _healButton.transform.SetAsLastSibling();
             UpdateActionButtonsPosition();
+        }
+
+        private static void ConfigurePopupRoot(GameObject popupRoot)
+        {
+            if (popupRoot == null) return;
+            var canvasGroup = popupRoot.AddComponent<CanvasGroup>();
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
+            popupRoot.transform.SetAsFirstSibling();
         }
 
         private void ConfigureActionButtonRect(Button button)
