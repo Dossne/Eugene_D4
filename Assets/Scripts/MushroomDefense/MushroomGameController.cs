@@ -71,7 +71,7 @@ namespace MushroomDefense
         private const float MushroomIdleBounceDuration = 0.28f;
         private const float HudPanelMarginX = 20f;
         private const float HudPanelMarginY = -20f;
-        private const float CurrencyPanelWidth = 170;
+        private const float CurrencyPanelWidth = 200;
         private const float CurrencyPanelHeight = 90f;
         private const float CurrencyPanelContentScale = 1f;
         private const float CurrencyIconTextSpacing = 14f;
@@ -488,31 +488,49 @@ namespace MushroomDefense
             rootRect.offsetMax = Vector2.zero;
             rootRect.localScale = Vector3.one * CurrencyPanelContentScale;
 
+            var row = new GameObject("CurrencyRow");
+            row.transform.SetParent(contentRoot.transform, false);
+            var rowRect = row.AddComponent<RectTransform>();
+            rowRect.anchorMin = new Vector2(0.5f, 0.5f);
+            rowRect.anchorMax = new Vector2(0.5f, 0.5f);
+            rowRect.pivot = new Vector2(0.5f, 0.5f);
+            rowRect.anchoredPosition = Vector2.zero;
+
+            var rowLayout = row.AddComponent<HorizontalLayoutGroup>();
+            rowLayout.childAlignment = TextAnchor.MiddleCenter;
+            rowLayout.spacing = CurrencyIconTextSpacing;
+            rowLayout.childControlWidth = true;
+            rowLayout.childControlHeight = true;
+            rowLayout.childForceExpandWidth = false;
+            rowLayout.childForceExpandHeight = false;
+
+            var rowFitter = row.AddComponent<ContentSizeFitter>();
+            rowFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            rowFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
             var icon = new GameObject("CurrencyIcon");
-            icon.transform.SetParent(contentRoot.transform, false);
+            icon.transform.SetParent(row.transform, false);
             var iconRect = icon.AddComponent<RectTransform>();
-            iconRect.anchorMin = new Vector2(0.5f, 0.5f);
-            iconRect.anchorMax = new Vector2(0.5f, 0.5f);
-            iconRect.pivot = new Vector2(1f, 0.5f);
             var iconSize = CurrencyPanelHeight * CurrencyIconSizeFactor;
             iconRect.sizeDelta = new Vector2(iconSize, iconSize);
-            iconRect.anchoredPosition = new Vector2(-CurrencyIconTextSpacing * 0.5f, 0f);
             var iconImage = icon.AddComponent<Image>();
             iconImage.sprite = _coinSprite ?? _fallbackSprite;
             iconImage.preserveAspect = true;
             iconImage.color = Color.white;
+            var iconLayout = icon.AddComponent<LayoutElement>();
+            iconLayout.preferredWidth = iconSize;
+            iconLayout.preferredHeight = iconSize;
 
-            _currencyText = CreateText("CurrencyAmount", new Vector2(0.5f, 0.5f), Vector2.zero, TextAnchor.MiddleLeft, 36, contentRoot.transform);
+            _currencyText = CreateText("CurrencyAmount", new Vector2(0.5f, 0.5f), Vector2.zero, TextAnchor.MiddleLeft, 36, row.transform);
             var amountRect = _currencyText.rectTransform;
-            amountRect.anchorMin = new Vector2(0.5f, 0.5f);
-            amountRect.anchorMax = new Vector2(0.5f, 0.5f);
-            amountRect.pivot = new Vector2(0f, 0.5f);
-            amountRect.anchoredPosition = new Vector2(CurrencyIconTextSpacing * 0.5f, 0f);
-            amountRect.sizeDelta = new Vector2(CurrencyPanelWidth * 0.6f, CurrencyPanelHeight * 0.85f);
-            _currencyText.resizeTextForBestFit = true;
-            _currencyText.resizeTextMinSize = 14;
-            _currencyText.resizeTextMaxSize = 56;
+            amountRect.sizeDelta = new Vector2(1f, CurrencyPanelHeight * 0.85f);
+            _currencyText.resizeTextForBestFit = false;
+            _currencyText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _currencyText.verticalOverflow = VerticalWrapMode.Overflow;
             _currencyText.color = new Color(0.17f, 0.14f, 0.09f, 1f);
+            var amountFitter = _currencyText.gameObject.AddComponent<ContentSizeFitter>();
+            amountFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            amountFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
         }
 
         private static void ConfigureWavePanelTextRect(Text text, bool topRow)
