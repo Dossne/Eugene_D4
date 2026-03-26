@@ -19,6 +19,7 @@ namespace MushroomDefense
         private const float WaveDelaySeconds = 60f;
         private const int MaxWaves = 10;
         private const float MushroomScale = 0.53f;
+        private const float EnemyScale = MushroomScale;
         private const float TileGapInTileWidths = 0.1f;
         // 0 = bottom edge of tile, 1 = top edge of tile
         private const float MushroomVisualYInCell = 0.3f;
@@ -744,7 +745,7 @@ namespace MushroomDefense
 
             var position = GetEnemySpawnPosition();
             enemyObject.transform.position = position;
-            enemyObject.transform.localScale = Vector3.one * 1.2f;
+            enemyObject.transform.localScale = Vector3.one * EnemyScale;
 
             var healthBarRoot = new GameObject("EnemyHP");
             var hpBar = CreateBar(healthBarRoot.transform, Color.red, 0.18f, 0.08f, 6);
