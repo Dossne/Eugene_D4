@@ -21,6 +21,7 @@ namespace MushroomDefense
         private const float EnemyWaveHpStepMultiplier = 0.28f;
         private const float EnemyWaveDamageBaseMultiplier = 0.8f;
         private const float EnemyWaveDamageStepMultiplier = 0.16f;
+        private const float MusicVolume = 0.45f;
         private const float MushroomScale = 0.53f;
         private const float EnemyScale = MushroomScale;
         private const float EnemyAttackRange = 0.85f;
@@ -167,6 +168,9 @@ namespace MushroomDefense
         private Sprite _uiBackgroundSprite;
         private Sprite _spawnButtonIconSprite;
         private Material _mushroomLaserMaterial;
+        private AudioClip _idleMusicClip;
+        private AudioClip _battleMusicClip;
+        private AudioSource _musicSource;
         private Sprite[] _mushroomSprites;
         private Sprite[] _tickSprites;
         private Sprite[] _mosquitoSprites;
@@ -207,6 +211,7 @@ namespace MushroomDefense
         private GameObject _endPanel;
         private Text _endTitle;
         private bool _isRestarting;
+        private bool _isBattleMusicActive;
 
         private void Awake()
         {
@@ -223,14 +228,17 @@ namespace MushroomDefense
             _mainCamera.transform.position = new Vector3(0f, 0f, -10f);
 
             EnsureEventSystem();
+            EnsureMusicSource();
             LoadSprites();
             BuildWorld();
             BuildUi();
             RefreshUi();
+            UpdateMusicState(true);
         }
 
         private void Update()
         {
+            UpdateMusicState();
             if (_gameEnded) return;
 
             HandleCheatInput();
@@ -306,6 +314,25 @@ namespace MushroomDefense
             {
                 _mushroomLaserMaterial = new Material(laserShader);
                 _mushroomLaserMaterial.color = Color.white;
+            }
+
+            LoadAudioClips();
+        }
+
+        private void LoadAudioClips()
+        {
+            if (_idleMusicClip == null)
+            {
+                _idleMusicClip = LoadEditorAudioClip("Assets/Sound/idle.mp3")
+                    ?? Resources.Load<AudioClip>("Sound/idle")
+                    ?? Resources.Load<AudioClip>("idle");
+            }
+
+            if (_battleMusicClip == null)
+            {
+                _battleMusicClip = LoadEditorAudioClip("Assets/Sound/battle.mp3")
+                    ?? Resources.Load<AudioClip>("Sound/battle")
+                    ?? Resources.Load<AudioClip>("battle");
             }
         }
 
@@ -1714,8 +1741,10 @@ namespace MushroomDefense
         private void EndGame(bool win)
         {
             _gameEnded = true;
+            _waveInProgress = false;
             _endPanel.SetActive(true);
             _endTitle.text = win ? "You win the game!" : "You Failed!";
+            UpdateMusicState(true);
         }
 
         private void RestartGame()
@@ -1803,9 +1832,43 @@ namespace MushroomDefense
             _gameEnded = false;
 
             EnsureEventSystem();
+            EnsureMusicSource();
             BuildWorld();
             BuildUi();
             RefreshUi();
+            UpdateMusicState(true);
+        }
+
+        private void EnsureMusicSource()
+        {
+            if (_musicSource != null) return;
+            _musicSource = gameObject.GetComponent<AudioSource>();
+            if (_musicSource == null) _musicSource = gameObject.AddComponent<AudioSource>();
+            _musicSource.playOnAwake = false;
+            _musicSource.loop = true;
+            _musicSource.volume = MusicVolume;
+        }
+
+        private void UpdateMusicState(bool force = false)
+        {
+            if (_musicSource == null) return;
+
+            var isBattle = !_gameEnded && _waveInProgress && _enemies.Count > 0;
+            if (!force && isBattle == _isBattleMusicActive) return;
+
+            _isBattleMusicActive = isBattle;
+            var targetClip = isBattle ? _battleMusicClip : _idleMusicClip;
+            if (targetClip == null)
+            {
+                _musicSource.Stop();
+                _musicSource.clip = null;
+                return;
+            }
+
+            if (_musicSource.clip == targetClip && _musicSource.isPlaying) return;
+
+            _musicSource.clip = targetClip;
+            _musicSource.Play();
         }
 
         private void RefreshUi()
@@ -2239,6 +2302,16 @@ namespace MushroomDefense
         {
 #if UNITY_EDITOR
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+#else
+            _ = path;
+            return null;
+#endif
+        }
+
+        private static AudioClip LoadEditorAudioClip(string path)
+        {
+#if UNITY_EDITOR
+            return AssetDatabase.LoadAssetAtPath<AudioClip>(path);
 #else
             _ = path;
             return null;
