@@ -24,6 +24,7 @@ namespace MushroomDefense
         private const float MusicVolume = 0.225f;
         private const float LaserSfxVolume = 0.62f;
         private const float MushroomHitSfxVolume = 0.55f;
+        private const float MushroomIdleSqueakSfxVolume = 0.38f;
         private const float MushroomScale = 0.53f;
         private const float EnemyScale = MushroomScale;
         private const float EnemyAttackRange = 0.85f;
@@ -174,6 +175,7 @@ namespace MushroomDefense
         private AudioClip _battleMusicClip;
         private AudioClip _laserShotSfxClip;
         private AudioClip _mushroomHitSfxClip;
+        private AudioClip _mushroomIdleSqueakSfxClip;
         private AudioSource _musicSource;
         private AudioSource _sfxSource;
         private Sprite[] _mushroomSprites;
@@ -353,6 +355,13 @@ namespace MushroomDefense
                 _mushroomHitSfxClip = LoadEditorAudioClip("Assets/Sound/mushroom_hit_wood.mp3")
                     ?? Resources.Load<AudioClip>("Sound/mushroom_hit_wood")
                     ?? Resources.Load<AudioClip>("mushroom_hit_wood");
+            }
+
+            if (_mushroomIdleSqueakSfxClip == null)
+            {
+                _mushroomIdleSqueakSfxClip = LoadEditorAudioClip("Assets/Sound/mushroom_idle_squeak.mp3")
+                    ?? Resources.Load<AudioClip>("Sound/mushroom_idle_squeak")
+                    ?? Resources.Load<AudioClip>("mushroom_idle_squeak");
             }
         }
 
@@ -1106,6 +1115,7 @@ namespace MushroomDefense
             mushroom.IdleFlipBackDone = false;
             ResetMushroomCombatVisual(mushroom);
             mushroom.Renderer.flipX = mushroom.BaseFlipX;
+            PlayMushroomIdleSqueakSfx(mushroom);
 
             if (mushroom.IdleAnimationMode == MushroomIdleModeRotate)
             {
@@ -1914,6 +1924,13 @@ namespace MushroomDefense
         {
             if (_sfxSource == null || _mushroomHitSfxClip == null) return;
             _sfxSource.PlayOneShot(_mushroomHitSfxClip, MushroomHitSfxVolume);
+        }
+
+        private void PlayMushroomIdleSqueakSfx(MushroomData mushroom)
+        {
+            if (mushroom == null || mushroom.Level > 2) return;
+            if (_sfxSource == null || _mushroomIdleSqueakSfxClip == null) return;
+            _sfxSource.PlayOneShot(_mushroomIdleSqueakSfxClip, MushroomIdleSqueakSfxVolume);
         }
 
         private void RefreshUi()
