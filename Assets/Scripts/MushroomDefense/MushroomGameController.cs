@@ -112,7 +112,7 @@ namespace MushroomDefense
         private readonly float[] _mushroomAttackInterval = { 1.3f, 1.1f, 0.9f, 0.7f };
         private readonly float[] _mushroomAttackRangeByScreenHeight = { 0.2f, 0.3333f, 0.4667f, 0.6f };
         private readonly int[] _mushroomCurrencyAmount = { 4, 5, 6, 9 };
-        private readonly float[] _mushroomCurrencyInterval = { 4.5f, 5f, 4.6f, 4.2f };
+        private readonly float[] _mushroomCurrencyInterval = {4.2f, 4.1f, 4.0f, 3.9f };
         private readonly float[] _mushroomBarsPivotYOffset = { 0.8f, 1.05f, 1.3f, 1.55f };
         private readonly float[] _mushroomLaserStartYOffset = { 0.5f, 0.75f, 1.0f, 1.22f };
         private readonly float[] _mushroomIdleMinDelay = { 1.9f, 2.8f, 2.85f, 2.45f };
