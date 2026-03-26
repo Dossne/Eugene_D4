@@ -20,6 +20,7 @@ namespace MushroomDefense
         private const int MaxWaves = 10;
         private const float MushroomScale = 0.53f;
         private const float EnemyScale = MushroomScale;
+        private const float EnemyAttackRange = 0.85f;
         private const float TileGapInTileWidths = 0.1f;
         // 0 = bottom edge of tile, 1 = top edge of tile
         private const float MushroomVisualYInCell = 0.3f;
@@ -672,7 +673,7 @@ namespace MushroomDefense
                 UpdateEnemyFacing(enemy, toTarget);
                 var distance = toTarget.magnitude;
 
-                if (distance > 0.2f)
+                if (distance > EnemyAttackRange)
                 {
                     var direction = toTarget.normalized;
                     enemy.WorldPosition += direction * GetEnemyMoveSpeed(enemy.Level) * deltaTime;
