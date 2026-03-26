@@ -53,6 +53,9 @@ namespace MushroomDefense
         private const int MushroomIdleModeJump = 1;
         private const int MushroomIdleModeRotate = 2;
         private const int MushroomIdleModeSpin = 3;
+        private const int MushroomIdleModeBounce = 4;
+        private static readonly Vector3 MushroomIdleBounceScale = new Vector3(1.04f, 0.95f, 1f);
+        private const float MushroomIdleBounceDuration = 0.28f;
         private const float HudPanelMarginX = 20f;
         private const float HudPanelMarginY = -20f;
         private const float CurrencyPanelWidth = 170;
@@ -853,6 +856,7 @@ namespace MushroomDefense
             var defaultScale = mushroom.DefaultScale;
             var isJumpMode = mushroom.IdleAnimationMode == MushroomIdleModeJump;
             var isSpinMode = mushroom.IdleAnimationMode == MushroomIdleModeSpin;
+            var isBounceMode = mushroom.IdleAnimationMode == MushroomIdleModeBounce;
 
             var jumpOffset = 0f;
             var scale = defaultScale;
@@ -876,6 +880,19 @@ namespace MushroomDefense
                     scale = Vector3.Lerp(stretchScale, defaultScale, Mathf.SmoothStep(0f, 1f, phaseT));
                 }
                 jumpOffset = 0.28f * intensity * Mathf.Sin(t * Mathf.PI);
+            }
+            else if (isBounceMode)
+            {
+                var bounceT = Mathf.Clamp01(mushroom.IdleAnimationTime / MushroomIdleBounceDuration);
+                var squeezed = Vector3.Scale(defaultScale, MushroomIdleBounceScale);
+                if (bounceT < 0.6f)
+                {
+                    scale = Vector3.Lerp(defaultScale, squeezed, Mathf.SmoothStep(0f, 1f, bounceT / 0.6f));
+                }
+                else
+                {
+                    scale = Vector3.Lerp(squeezed, defaultScale, Mathf.SmoothStep(0f, 1f, (bounceT - 0.6f) / 0.4f));
+                }
             }
 
             mushroom.Renderer.transform.position = mushroom.BaseVisualPosition + Vector3.up * jumpOffset;
@@ -917,13 +934,17 @@ namespace MushroomDefense
         {
             if (level <= 2)
             {
-                var roll = Random.Range(0, 3);
+                var roll = Random.Range(0, 4);
                 if (roll == 0) return MushroomIdleModeJump;
                 if (roll == 1) return MushroomIdleModeRotate;
-                return MushroomIdleModeSpin;
+                if (roll == 2) return MushroomIdleModeSpin;
+                return MushroomIdleModeBounce;
             }
 
-            return Random.value < 0.5f ? MushroomIdleModeRotate : MushroomIdleModeSpin;
+            var highRoll = Random.Range(0, 3);
+            if (highRoll == 0) return MushroomIdleModeRotate;
+            if (highRoll == 1) return MushroomIdleModeSpin;
+            return MushroomIdleModeBounce;
         }
 
         private float GetRandomMushroomIdleDelay(int level)
