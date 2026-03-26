@@ -21,6 +21,9 @@ namespace MushroomDefense
         private const float MushroomScale = 0.53f;
         private const float EnemyScale = MushroomScale;
         private const float EnemyAttackRange = 0.85f;
+        private const float EnemyAttackLeapOutDuration = 0.14f;
+        private const float EnemyAttackLeapBackDuration = 0.16f;
+        private const float EnemyAttackLeapArcHeight = 0.24f;
         private const float TileGapInTileWidths = 0.1f;
         // 0 = bottom edge of tile, 1 = top edge of tile
         private const float MushroomVisualYInCell = 0.3f;
@@ -669,6 +672,14 @@ namespace MushroomDefense
                 if (enemy.Target == null) continue;
 
                 enemy.AttackCooldown -= deltaTime;
+
+                if (enemy.IsAttackLeapActive)
+                {
+                    UpdateEnemyAttackLeap(enemy, deltaTime);
+                    UpdateEnemyBar(enemy);
+                    continue;
+                }
+
                 var toTarget = enemy.Target.WorldPosition - enemy.WorldPosition;
                 UpdateEnemyFacing(enemy, toTarget);
                 var distance = toTarget.magnitude;
@@ -682,13 +693,75 @@ namespace MushroomDefense
                 }
                 else if (enemy.AttackCooldown <= 0f)
                 {
-                    enemy.Target.Health -= GetEnemyDamage(enemy.Level);
-                    enemy.AttackCooldown = GetEnemyAttackInterval(enemy.Level);
-                    if (enemy.Target.Health <= 0f) KillMushroom(enemy.Target);
+                    StartEnemyAttackLeap(enemy);
                 }
 
                 UpdateEnemyBar(enemy);
             }
+        }
+
+        private void StartEnemyAttackLeap(EnemyData enemy)
+        {
+            if (enemy == null || enemy.Renderer == null || enemy.Target == null) return;
+
+            enemy.IsAttackLeapActive = true;
+            enemy.AttackLeapTime = 0f;
+            enemy.AttackLeapDamageApplied = false;
+            enemy.AttackLeapStart = enemy.WorldPosition;
+            enemy.AttackLeapPivot = enemy.Target.Renderer != null
+                ? (Vector2)enemy.Target.Renderer.transform.position
+                : enemy.Target.WorldPosition;
+        }
+
+        private void UpdateEnemyAttackLeap(EnemyData enemy, float deltaTime)
+        {
+            if (enemy == null || enemy.Renderer == null) return;
+
+            enemy.AttackLeapTime += deltaTime;
+            var totalDuration = EnemyAttackLeapOutDuration + EnemyAttackLeapBackDuration;
+
+            if (enemy.AttackLeapTime <= EnemyAttackLeapOutDuration)
+            {
+                var t = Mathf.Clamp01(enemy.AttackLeapTime / EnemyAttackLeapOutDuration);
+                var pos = Vector2.Lerp(enemy.AttackLeapStart, enemy.AttackLeapPivot, t);
+                pos.y += Mathf.Sin(t * Mathf.PI) * EnemyAttackLeapArcHeight;
+                enemy.WorldPosition = pos;
+            }
+            else
+            {
+                if (!enemy.AttackLeapDamageApplied)
+                {
+                    ApplyEnemyLeapHit(enemy);
+                }
+
+                var backT = Mathf.Clamp01((enemy.AttackLeapTime - EnemyAttackLeapOutDuration) / EnemyAttackLeapBackDuration);
+                var pos = Vector2.Lerp(enemy.AttackLeapPivot, enemy.AttackLeapStart, backT);
+                pos.y += Mathf.Sin(backT * Mathf.PI) * (EnemyAttackLeapArcHeight * 0.8f);
+                enemy.WorldPosition = pos;
+            }
+
+            enemy.Renderer.transform.position = new Vector3(enemy.WorldPosition.x, enemy.WorldPosition.y, 0f);
+            enemy.HealthBarRoot.transform.position = enemy.WorldPosition + new Vector2(0f, 0.8f);
+
+            if (enemy.AttackLeapTime >= totalDuration)
+            {
+                enemy.WorldPosition = enemy.AttackLeapStart;
+                enemy.Renderer.transform.position = new Vector3(enemy.WorldPosition.x, enemy.WorldPosition.y, 0f);
+                enemy.HealthBarRoot.transform.position = enemy.WorldPosition + new Vector2(0f, 0.8f);
+                enemy.IsAttackLeapActive = false;
+                enemy.AttackLeapTime = 0f;
+                enemy.AttackLeapDamageApplied = false;
+                enemy.AttackCooldown = GetEnemyAttackInterval(enemy.Level);
+            }
+        }
+
+        private void ApplyEnemyLeapHit(EnemyData enemy)
+        {
+            enemy.AttackLeapDamageApplied = true;
+            if (enemy.Target == null || enemy.Target.Health <= 0f) return;
+
+            enemy.Target.Health -= GetEnemyDamage(enemy.Level);
+            if (enemy.Target.Health <= 0f) KillMushroom(enemy.Target);
         }
 
         private static void UpdateEnemyFacing(EnemyData enemy, Vector2 toTarget)
@@ -1817,6 +1890,11 @@ namespace MushroomDefense
             public MushroomData Target;
             public GameObject HealthBarRoot;
             public SpriteRenderer HealthBar;
+            public bool IsAttackLeapActive;
+            public float AttackLeapTime;
+            public Vector2 AttackLeapStart;
+            public Vector2 AttackLeapPivot;
+            public bool AttackLeapDamageApplied;
         }
 
         private sealed class CurrencyPopupData
