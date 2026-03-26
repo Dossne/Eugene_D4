@@ -606,6 +606,7 @@ namespace MushroomDefense
                     ? null
                     : FindClosestEnemy(mushroom.WorldPosition, GetMushroomAttackRange(mushroom.Level));
                 var isInCombat = targetInRange != null;
+                mushroom.IsInCombat = isInCombat;
                 if (!isInCombat)
                 {
                     ResetMushroomCombatVisual(mushroom);
@@ -1925,8 +1926,9 @@ namespace MushroomDefense
             mushroom.CurrencyBar.transform.localPosition = new Vector3(-(MushroomBarWidth - currencyFillWidth) * 0.5f, 0f, 0f);
 
             var showBars = _selectedMushroom == mushroom;
+            var showHealthBar = showBars || mushroom.IsInCombat;
             mushroom.CurrencyBar.transform.parent.gameObject.SetActive(showBars);
-            mushroom.HealthBar.transform.parent.gameObject.SetActive(showBars);
+            mushroom.HealthBar.transform.parent.gameObject.SetActive(showHealthBar);
             if (mushroom.CurrencyDivider != null)
             {
                 mushroom.CurrencyDivider.gameObject.SetActive(showBars);
@@ -1996,6 +1998,7 @@ namespace MushroomDefense
             public float CurrencyAnimationTime;
             public int PendingCurrencyAmount;
             public bool CurrencyPopupTriggered;
+            public bool IsInCombat;
             public bool IsIdleAnimationActive;
             public float IdleAnimationTime;
             public float NextIdleDelay;
