@@ -99,7 +99,7 @@ namespace MushroomDefense
         private const int SpawnCost = 20;
         private const int HealCost = 16;
 
-        private readonly int[] _upgradeCostByLevel = { 0, 30, 91, 260 };
+        private readonly int[] _upgradeCostByLevel = { 0, 30, 84, 260 };
 
         private readonly float[] _mushroomMaxHp = { 30f, 50f, 80f, 120f };
         private readonly float[] _mushroomDamage = { 4f, 6f, 9f, 14f };
