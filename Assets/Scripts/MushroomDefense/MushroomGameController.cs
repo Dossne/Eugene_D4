@@ -1378,8 +1378,18 @@ namespace MushroomDefense
         private void SpawnCurrencyPopup(MushroomData mushroom, int amount)
         {
             if (mushroom == null || mushroom.Renderer == null || _canvas == null || _mainCamera == null) return;
+            SpawnCurrencyPopupAt((Vector2)mushroom.Renderer.transform.position + Vector2.up * CurrencyPopupStartOffsetY, amount, "CurrencyPopup");
+        }
 
-            var popupRoot = new GameObject("CurrencyPopup");
+        private void SpawnCurrencyPopupFromEnemy(EnemyData enemy, int amount)
+        {
+            if (enemy == null || enemy.Renderer == null || _canvas == null || _mainCamera == null) return;
+            SpawnCurrencyPopupAt((Vector2)enemy.Renderer.transform.position + Vector2.up * CurrencyPopupStartOffsetY, amount, "EnemyCurrencyPopup");
+        }
+
+        private void SpawnCurrencyPopupAt(Vector2 startWorldPosition, int amount, string popupObjectName)
+        {
+            var popupRoot = new GameObject(popupObjectName);
             popupRoot.transform.SetParent(_canvas.transform, false);
             ConfigurePopupRoot(popupRoot);
             var popupRect = popupRoot.AddComponent<RectTransform>();
@@ -1429,7 +1439,7 @@ namespace MushroomDefense
                 RootRect = popupRect,
                 AmountText = amountText,
                 Icon = iconImage,
-                StartWorldPosition = (Vector2)mushroom.Renderer.transform.position + Vector2.up * CurrencyPopupStartOffsetY,
+                StartWorldPosition = startWorldPosition,
                 RiseDuration = 0.28f,
                 HoldDuration = 0f,
                 FadeDuration = 0.45f
@@ -1703,7 +1713,9 @@ namespace MushroomDefense
 
         private void KillEnemy(EnemyData enemy)
         {
-            AddCurrency(GetEnemyReward(enemy));
+            var reward = GetEnemyReward(enemy);
+            AddCurrency(reward);
+            SpawnCurrencyPopupFromEnemy(enemy, reward);
             _enemies.Remove(enemy);
             Destroy(enemy.Renderer.gameObject);
             Destroy(enemy.HealthBarRoot);
