@@ -98,7 +98,7 @@ namespace MushroomDefense
         private readonly float[] _mushroomMaxHp = { 30f, 50f, 80f, 120f };
         private readonly float[] _mushroomDamage = { 3f, 6f, 10f, 15f };
         private readonly float[] _mushroomAttackInterval = { 1.3f, 1.1f, 0.9f, 0.7f };
-        private readonly float[] _mushroomAttackRange = { 2.2f, 2.6f, 3.0f, 3.4f };
+        private readonly float[] _mushroomAttackRangeByScreenHeight = { 0.2f, 0.3333f, 0.4667f, 0.6f };
         private readonly int[] _mushroomCurrencyAmount = { 4, 7, 11, 16 };
         private readonly float[] _mushroomCurrencyInterval = { 4.5f, 4f, 3.5f, 3f };
         private readonly float[] _mushroomBarsPivotYOffset = { 0.8f, 1.05f, 1.3f, 1.55f };
@@ -1954,7 +1954,12 @@ namespace MushroomDefense
         private float GetMushroomMaxHp(int level) => _mushroomMaxHp[level - 1];
         private float GetMushroomDamage(int level) => _mushroomDamage[level - 1];
         private float GetMushroomAttackInterval(int level) => _mushroomAttackInterval[level - 1];
-        private float GetMushroomAttackRange(int level) => _mushroomAttackRange[level - 1];
+        private float GetMushroomAttackRange(int level)
+        {
+            var idx = Mathf.Clamp(level - 1, 0, _mushroomAttackRangeByScreenHeight.Length - 1);
+            var screenHeightWorld = _mainCamera != null ? _mainCamera.orthographicSize * 2f : 12f;
+            return _mushroomAttackRangeByScreenHeight[idx] * screenHeightWorld;
+        }
         private int GetMushroomCurrencyAmount(int level) => _mushroomCurrencyAmount[level - 1];
         private float GetMushroomCurrencyInterval(int level) => _mushroomCurrencyInterval[level - 1];
         private float GetMushroomBarsPivotYOffset(int level) => _mushroomBarsPivotYOffset[level - 1];
