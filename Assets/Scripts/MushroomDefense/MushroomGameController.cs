@@ -109,14 +109,39 @@ namespace MushroomDefense
         private readonly float[] _mushroomIdleMaxDelay = { 3.0f, 4.0f, 3.35f, 2.9f };
         private readonly float[] _mushroomIdleIntensity = { 1f, 0.72f, 0.45f, 0.32f };
 
-        private readonly float[] _enemyMaxHp = { 80f, 160f, 280f };
-        private readonly float[] _enemyDamage = { 4f, 7f, 11f };
-        private readonly float[] _enemyAttackInterval = { 1.2f, 1.0f, 0.8f };
-        private readonly float[] _enemyMoveSpeed = { 1.0f, 0.8f, 0.6f };
-        private readonly int[] _enemyReward = { 8, 14, 24 };
-        private readonly float[] _enemyHpMultiplierByType = { 0.9f, 1f, 1.2f };
-        private readonly float[] _enemyDamageMultiplierByType = { 0.9f, 1f, 1.2f };
-        private readonly float[] _enemyAttackIntervalMultiplierByType = { 1.05f, 1f, 0.9f };
+        // Enemy stats are explicit by [type, levelIndex] where levelIndex = level - 1.
+        // Strength order is strictly:
+        // Mosquito_1 < Tick_1 < Hare_1 < Mosquito_2 < Tick_2 < Hare_2 < Mosquito_3 < Tick_3 < Hare_3.
+        private readonly float[,] _enemyHpByTypeAndLevel =
+        {
+            { 16f, 70f, 150f },   // Mosquito
+            { 21f, 84f, 180f },   // Tick
+            { 27f, 102f, 220f }   // Hare
+        };
+        private readonly float[,] _enemyDamageByTypeAndLevel =
+        {
+            { 2.8f, 5.5f, 9.0f },   // Mosquito
+            { 3.3f, 6.5f, 10.5f },  // Tick
+            { 3.9f, 7.8f, 12.5f }   // Hare
+        };
+        private readonly float[,] _enemyAttackIntervalByTypeAndLevel =
+        {
+            { 1.35f, 1.10f, 0.90f },  // Mosquito
+            { 1.25f, 1.00f, 0.82f },  // Tick
+            { 1.15f, 0.90f, 0.74f }   // Hare
+        };
+        private readonly float[,] _enemyMoveSpeedByTypeAndLevel =
+        {
+            { 0.90f, 0.72f, 0.54f },  // Mosquito
+            { 1.00f, 0.80f, 0.60f },  // Tick
+            { 1.10f, 0.88f, 0.66f }   // Hare
+        };
+        private readonly int[,] _enemyRewardByTypeAndLevel =
+        {
+            { 6, 12, 20 },   // Mosquito
+            { 8, 15, 24 },   // Tick
+            { 10, 19, 30 }   // Hare
+        };
 
         private readonly List<MushroomData> _mushrooms = new List<MushroomData>();
         private readonly List<EnemyData> _enemies = new List<EnemyData>();
@@ -717,7 +742,7 @@ namespace MushroomDefense
                 if (distance > EnemyAttackRange)
                 {
                     var direction = toTarget.normalized;
-                    enemy.WorldPosition += direction * GetEnemyMoveSpeed(enemy.Level) * deltaTime;
+                    enemy.WorldPosition += direction * GetEnemyMoveSpeed(enemy) * deltaTime;
                     var hop = Mathf.Abs(Mathf.Sin(Time.time * EnemyMoveHopFrequency + enemy.MoveHopPhase)) * EnemyMoveHopAmplitude;
                     var visualPos = enemy.WorldPosition + Vector2.up * hop;
                     enemy.Renderer.transform.position = new Vector3(visualPos.x, visualPos.y, 0f);
@@ -891,7 +916,7 @@ namespace MushroomDefense
             {
                 Type = enemyType,
                 Level = level,
-                Health = GetEnemyMaxHp(level) * GetEnemyHpMultiplier(enemyType),
+                Health = GetEnemyMaxHp(enemyType, level),
                 WorldPosition = position,
                 Renderer = renderer,
                 HealthBarRoot = healthBarRoot,
@@ -1577,7 +1602,7 @@ namespace MushroomDefense
 
         private void KillEnemy(EnemyData enemy)
         {
-            AddCurrency(_enemyReward[enemy.Level - 1]);
+            AddCurrency(GetEnemyReward(enemy));
             _enemies.Remove(enemy);
             Destroy(enemy.Renderer.gameObject);
             Destroy(enemy.HealthBarRoot);
@@ -2020,16 +2045,16 @@ namespace MushroomDefense
         private float GetMushroomBarsPivotYOffset(int level) => _mushroomBarsPivotYOffset[level - 1];
         private float GetMushroomLaserStartYOffset(int level) => _mushroomLaserStartYOffset[level - 1];
 
-        private float GetEnemyMaxHp(int level) => _enemyMaxHp[level - 1];
-        private float GetEnemyDamage(int level) => _enemyDamage[level - 1];
-        private float GetEnemyAttackInterval(int level) => _enemyAttackInterval[level - 1];
-        private float GetEnemyMoveSpeed(int level) => _enemyMoveSpeed[level - 1];
-        private float GetEnemyMaxHp(EnemyData enemy) => GetEnemyMaxHp(enemy.Level) * GetEnemyHpMultiplier(enemy.Type);
-        private float GetEnemyDamage(EnemyData enemy) => GetEnemyDamage(enemy.Level) * GetEnemyDamageMultiplier(enemy.Type);
-        private float GetEnemyAttackInterval(EnemyData enemy) => GetEnemyAttackInterval(enemy.Level) * GetEnemyAttackIntervalMultiplier(enemy.Type);
-        private float GetEnemyHpMultiplier(EnemyType type) => _enemyHpMultiplierByType[(int)type];
-        private float GetEnemyDamageMultiplier(EnemyType type) => _enemyDamageMultiplierByType[(int)type];
-        private float GetEnemyAttackIntervalMultiplier(EnemyType type) => _enemyAttackIntervalMultiplierByType[(int)type];
+        private float GetEnemyMaxHp(EnemyData enemy) => GetEnemyMaxHp(enemy.Type, enemy.Level);
+        private float GetEnemyDamage(EnemyData enemy) => GetEnemyDamage(enemy.Type, enemy.Level);
+        private float GetEnemyAttackInterval(EnemyData enemy) => GetEnemyAttackInterval(enemy.Type, enemy.Level);
+        private float GetEnemyMoveSpeed(EnemyData enemy) => GetEnemyMoveSpeed(enemy.Type, enemy.Level);
+        private int GetEnemyReward(EnemyData enemy) => GetEnemyReward(enemy.Type, enemy.Level);
+        private float GetEnemyMaxHp(EnemyType type, int level) => _enemyHpByTypeAndLevel[(int)type, Mathf.Clamp(level - 1, 0, 2)];
+        private float GetEnemyDamage(EnemyType type, int level) => _enemyDamageByTypeAndLevel[(int)type, Mathf.Clamp(level - 1, 0, 2)];
+        private float GetEnemyAttackInterval(EnemyType type, int level) => _enemyAttackIntervalByTypeAndLevel[(int)type, Mathf.Clamp(level - 1, 0, 2)];
+        private float GetEnemyMoveSpeed(EnemyType type, int level) => _enemyMoveSpeedByTypeAndLevel[(int)type, Mathf.Clamp(level - 1, 0, 2)];
+        private int GetEnemyReward(EnemyType type, int level) => _enemyRewardByTypeAndLevel[(int)type, Mathf.Clamp(level - 1, 0, 2)];
 
         private static Sprite CreateSolidSprite()
         {
