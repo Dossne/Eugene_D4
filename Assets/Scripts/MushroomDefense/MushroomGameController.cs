@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 #if UNITY_EDITOR
@@ -207,6 +206,7 @@ namespace MushroomDefense
         private bool _isWarningVisible;
         private GameObject _endPanel;
         private Text _endTitle;
+        private bool _isRestarting;
 
         private void Awake()
         {
@@ -1708,7 +1708,95 @@ namespace MushroomDefense
             _endTitle.text = win ? "You win the game!" : "You Failed!";
         }
 
-        private void RestartGame() => SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        private void RestartGame()
+        {
+            if (_isRestarting) return;
+            _isRestarting = true;
+            StartCoroutine(RestartGameRoutine());
+        }
+
+        private IEnumerator RestartGameRoutine()
+        {
+            yield return null;
+            ResetGameSession();
+            _isRestarting = false;
+        }
+
+        private void ResetGameSession()
+        {
+            Time.timeScale = 1f;
+            if (_warningFadeCoroutine != null)
+            {
+                StopCoroutine(_warningFadeCoroutine);
+                _warningFadeCoroutine = null;
+            }
+
+            ClearSelection();
+
+            foreach (var mushroom in _mushrooms)
+            {
+                if (mushroom?.Renderer != null) Destroy(mushroom.Renderer.gameObject);
+                if (mushroom?.BarsRoot != null) Destroy(mushroom.BarsRoot);
+            }
+            _mushrooms.Clear();
+
+            foreach (var enemy in _enemies)
+            {
+                if (enemy?.Renderer != null) Destroy(enemy.Renderer.gameObject);
+                if (enemy?.HealthBarRoot != null) Destroy(enemy.HealthBarRoot);
+            }
+            _enemies.Clear();
+
+            foreach (var popup in _currencyPopups)
+            {
+                if (popup?.RootRect != null) Destroy(popup.RootRect.gameObject);
+            }
+            _currencyPopups.Clear();
+
+            foreach (var laser in _mushroomLasers)
+            {
+                if (laser?.Line != null) Destroy(laser.Line.gameObject);
+            }
+            _mushroomLasers.Clear();
+
+            foreach (var cell in _cellByCollider.Values)
+            {
+                if (cell?.Renderer != null) Destroy(cell.Renderer.gameObject);
+            }
+            _cellByCollider.Clear();
+            _mushroomByCollider.Clear();
+
+            var background = GameObject.Find("Background");
+            if (background != null) Destroy(background);
+
+            if (_canvas != null) Destroy(_canvas.gameObject);
+            _canvas = null;
+            _currencyText = null;
+            _waveText = null;
+            _nextWaveText = null;
+            _warningText = null;
+            _spawnButton = null;
+            _upgradeButton = null;
+            _healButton = null;
+            _spawnCostText = null;
+            _upgradeCostText = null;
+            _healCostText = null;
+            _endPanel = null;
+            _endTitle = null;
+            _warningFadeCoroutine = null;
+            _isWarningVisible = false;
+
+            _currency = 35;
+            _currentWave = 0;
+            _timeToNextWave = WaveDelaySeconds;
+            _waveInProgress = false;
+            _gameEnded = false;
+
+            EnsureEventSystem();
+            BuildWorld();
+            BuildUi();
+            RefreshUi();
+        }
 
         private void RefreshUi()
         {
