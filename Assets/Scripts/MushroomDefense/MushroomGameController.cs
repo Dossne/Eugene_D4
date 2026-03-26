@@ -553,11 +553,16 @@ namespace MushroomDefense
             foreach (var mushroom in _mushrooms.ToArray())
             {
                 mushroom.AttackCooldown -= deltaTime;
+                var targetInRange = _enemies.Count == 0
+                    ? null
+                    : FindClosestEnemy(mushroom.WorldPosition, GetMushroomAttackRange(mushroom.Level));
+                var isInCombat = targetInRange != null;
+
                 if (mushroom.IsCurrencyAnimationActive)
                 {
                     UpdateMushroomCurrencyAnimation(mushroom, deltaTime);
                 }
-                else
+                else if (!isInCombat)
                 {
                     if (mushroom.IsIdleAnimationActive)
                     {
@@ -589,8 +594,18 @@ namespace MushroomDefense
                         }
                     }
                 }
+                else if (mushroom.IsIdleAnimationActive)
+                {
+                    StopMushroomIdleAnimation(mushroom);
+                }
 
                 if (_enemies.Count == 0)
+                {
+                    UpdateMushroomBars(mushroom);
+                    continue;
+                }
+
+                if (!isInCombat)
                 {
                     UpdateMushroomBars(mushroom);
                     continue;
@@ -602,13 +617,9 @@ namespace MushroomDefense
                     continue;
                 }
 
-                var target = FindClosestEnemy(mushroom.WorldPosition, GetMushroomAttackRange(mushroom.Level));
-                if (target != null)
-                {
-                    target.Health -= GetMushroomDamage(mushroom.Level);
-                    mushroom.AttackCooldown = GetMushroomAttackInterval(mushroom.Level);
-                    if (target.Health <= 0f) KillEnemy(target);
-                }
+                targetInRange.Health -= GetMushroomDamage(mushroom.Level);
+                mushroom.AttackCooldown = GetMushroomAttackInterval(mushroom.Level);
+                if (targetInRange.Health <= 0f) KillEnemy(targetInRange);
 
                 UpdateMushroomBars(mushroom);
             }
