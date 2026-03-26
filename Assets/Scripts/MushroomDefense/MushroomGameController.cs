@@ -79,6 +79,7 @@ namespace MushroomDefense
         private const float CurrencyPopupStartOffsetY = 0.45f;
         private const float CurrencyPopupIconTextSpacing = 7f;
         private const float CurrencyPopupRiseHeight = 1.1f;
+        private const float EnemyDamagePopupStartOffsetY = 0.42f;
         private const float WavePanelWidth = 270f;
         private const float WavePanelHeight = 90f;
         private const float WavePanelTextScale = 0.9f;
@@ -670,10 +671,12 @@ namespace MushroomDefense
                     continue;
                 }
 
-                targetInRange.Health -= GetMushroomDamage(mushroom.Level);
+                var damage = GetMushroomDamage(mushroom.Level);
+                targetInRange.Health -= damage;
                 var laserStart = mushroom.Renderer.transform.position + Vector3.up * GetMushroomLaserStartYOffset(mushroom.Level);
                 var laserTarget = targetInRange.Renderer.transform.position + Vector3.up * 0.2f;
                 SpawnMushroomLaser(laserStart, laserTarget);
+                SpawnEnemyDamagePopup(targetInRange, damage);
                 mushroom.AttackCooldown = GetMushroomAttackInterval(mushroom.Level);
                 ResetMushroomCombatVisual(mushroom);
                 if (targetInRange.Health <= 0f) KillEnemy(targetInRange);
@@ -1325,6 +1328,58 @@ namespace MushroomDefense
                 var color = popup.Icon.color;
                 popup.Icon.color = new Color(color.r, color.g, color.b, alpha);
             }
+        }
+
+        private void SpawnEnemyDamagePopup(EnemyData enemy, float damage)
+        {
+            if (enemy == null || enemy.Renderer == null || _canvas == null || _mainCamera == null) return;
+
+            var popupRoot = new GameObject("EnemyDamagePopup");
+            popupRoot.transform.SetParent(_canvas.transform, false);
+            var popupRect = popupRoot.AddComponent<RectTransform>();
+            popupRect.anchorMin = new Vector2(0.5f, 0.5f);
+            popupRect.anchorMax = new Vector2(0.5f, 0.5f);
+            popupRect.pivot = new Vector2(0.5f, 0.5f);
+            popupRect.sizeDelta = new Vector2(180f, 64f);
+
+            var amountText = CreateText("Amount", new Vector2(0.5f, 0.5f), Vector2.zero, TextAnchor.MiddleCenter, 30, popupRoot.transform);
+            amountText.text = $"-{FormatDamageValue(damage)}";
+            amountText.fontStyle = FontStyle.Bold;
+            amountText.color = new Color(0.2f, 1f, 0.28f, 1f);
+            amountText.resizeTextForBestFit = true;
+            amountText.resizeTextMinSize = 14;
+            amountText.resizeTextMaxSize = 42;
+            amountText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            amountText.verticalOverflow = VerticalWrapMode.Truncate;
+
+            var outline = amountText.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.95f);
+            outline.effectDistance = new Vector2(2f, -2f);
+
+            var textRect = amountText.rectTransform;
+            textRect.anchorMin = new Vector2(0.5f, 0.5f);
+            textRect.anchorMax = new Vector2(0.5f, 0.5f);
+            textRect.pivot = new Vector2(0.5f, 0.5f);
+            textRect.anchoredPosition = Vector2.zero;
+            textRect.sizeDelta = new Vector2(160f, 56f);
+
+            _currencyPopups.Add(new CurrencyPopupData
+            {
+                RootRect = popupRect,
+                AmountText = amountText,
+                Icon = null,
+                StartWorldPosition = (Vector2)enemy.Renderer.transform.position + Vector2.up * EnemyDamagePopupStartOffsetY,
+                RiseDuration = 0.24f,
+                FadeDuration = 0.42f
+            });
+        }
+
+        private static string FormatDamageValue(float damage)
+        {
+            var rounded = Mathf.Round(damage);
+            return Mathf.Abs(damage - rounded) < 0.01f
+                ? ((int)rounded).ToString()
+                : damage.ToString("0.#");
         }
 
         private void FireLaserCheatToTopRight()
