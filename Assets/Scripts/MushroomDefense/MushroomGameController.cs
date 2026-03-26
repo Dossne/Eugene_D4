@@ -45,6 +45,10 @@ namespace MushroomDefense
         private const float MushroomCurrencyShakeStrength = 0.02f;
         private const float MushroomCurrencyBounceUpDuration = 0.18f;
         private const float MushroomCurrencyBounceDownDuration = 0.2f;
+        private static readonly Vector3 MushroomCombatWindupScale = new Vector3(1.1f, 0.88f, 1f);
+        private const float MushroomCombatShakeFrequency = 14f;
+        private const float MushroomCombatShakeStrength = 0.03f;
+        private static readonly Color MushroomCombatMaxColor = new Color(1f, 0.22f, 0.22f, 1f);
         private const float MushroomIdleDuration = 0.62f;
         private const float MushroomIdleSafetyBeforeCurrency = 0.08f;
         private const float MushroomIdleDelayAfterCurrency = 0.3f;
@@ -557,6 +561,10 @@ namespace MushroomDefense
                     ? null
                     : FindClosestEnemy(mushroom.WorldPosition, GetMushroomAttackRange(mushroom.Level));
                 var isInCombat = targetInRange != null;
+                if (!isInCombat)
+                {
+                    ResetMushroomCombatVisual(mushroom);
+                }
 
                 if (mushroom.IsCurrencyAnimationActive)
                 {
@@ -613,12 +621,14 @@ namespace MushroomDefense
 
                 if (mushroom.AttackCooldown > 0f)
                 {
+                    UpdateMushroomCombatWindupAnimation(mushroom);
                     UpdateMushroomBars(mushroom);
                     continue;
                 }
 
                 targetInRange.Health -= GetMushroomDamage(mushroom.Level);
                 mushroom.AttackCooldown = GetMushroomAttackInterval(mushroom.Level);
+                ResetMushroomCombatVisual(mushroom);
                 if (targetInRange.Health <= 0f) KillEnemy(targetInRange);
 
                 UpdateMushroomBars(mushroom);
@@ -843,6 +853,7 @@ namespace MushroomDefense
             mushroom.IdleFlipMode = 0;
             mushroom.IdleFlipTimer = 0f;
             mushroom.IdleFlipBackDone = false;
+            ResetMushroomCombatVisual(mushroom);
             mushroom.Renderer.flipX = mushroom.BaseFlipX;
 
             if (mushroom.IdleAnimationMode == MushroomIdleModeRotate)
@@ -934,6 +945,7 @@ namespace MushroomDefense
             mushroom.Renderer.transform.position = mushroom.BaseVisualPosition;
             mushroom.Renderer.transform.localScale = mushroom.DefaultScale;
             mushroom.Renderer.transform.rotation = Quaternion.identity;
+            ResetMushroomCombatVisual(mushroom);
             mushroom.Renderer.flipX = mushroom.BaseFlipX;
             mushroom.IdleAnimationMode = MushroomIdleModeNone;
             mushroom.IdleFlipMode = 0;
@@ -970,6 +982,41 @@ namespace MushroomDefense
             return _mushroomIdleIntensity[idx];
         }
 
+        private void UpdateMushroomCombatWindupAnimation(MushroomData mushroom)
+        {
+            if (mushroom == null || mushroom.Renderer == null) return;
+
+            var interval = Mathf.Max(0.01f, GetMushroomAttackInterval(mushroom.Level));
+            var progress = 1f - Mathf.Clamp01(mushroom.AttackCooldown / interval);
+            var baseScale = mushroom.DefaultScale;
+            var targetScale = Vector3.Scale(baseScale, MushroomCombatWindupScale);
+            var scale = Vector3.Lerp(baseScale, targetScale, progress);
+
+            var shakePhase = Time.time * MushroomCombatShakeFrequency * Mathf.PI * 2f;
+            var shakeX = Mathf.Sin(shakePhase) * MushroomCombatShakeStrength * progress;
+            scale.x += shakeX;
+            scale.y -= Mathf.Abs(shakeX) * 0.35f;
+
+            mushroom.Renderer.transform.localScale = scale;
+            mushroom.Renderer.transform.position = mushroom.BaseVisualPosition;
+            mushroom.Renderer.transform.rotation = Quaternion.identity;
+            mushroom.Renderer.color = Color.Lerp(GetMushroomBaseColor(mushroom), MushroomCombatMaxColor, progress);
+        }
+
+        private void ResetMushroomCombatVisual(MushroomData mushroom)
+        {
+            if (mushroom == null || mushroom.Renderer == null) return;
+            mushroom.Renderer.transform.localScale = mushroom.DefaultScale;
+            mushroom.Renderer.transform.position = mushroom.BaseVisualPosition;
+            mushroom.Renderer.transform.rotation = Quaternion.identity;
+            mushroom.Renderer.color = GetMushroomBaseColor(mushroom);
+        }
+
+        private Color GetMushroomBaseColor(MushroomData mushroom)
+        {
+            return _selectedMushroom == mushroom ? new Color(1f, 0.95f, 0.55f, 1f) : Color.white;
+        }
+
         private void StartMushroomCurrencyAnimation(MushroomData mushroom, int amount)
         {
             if (mushroom == null || mushroom.Renderer == null) return;
@@ -983,9 +1030,7 @@ namespace MushroomDefense
             mushroom.PendingCurrencyAmount = amount;
             mushroom.CurrencyPopupTriggered = false;
             mushroom.DefaultScale = Vector3.one * MushroomScale;
-            mushroom.Renderer.transform.position = mushroom.BaseVisualPosition;
-            mushroom.Renderer.transform.rotation = Quaternion.identity;
-            mushroom.Renderer.transform.localScale = mushroom.DefaultScale;
+            ResetMushroomCombatVisual(mushroom);
             mushroom.Renderer.flipX = mushroom.BaseFlipX;
         }
 
