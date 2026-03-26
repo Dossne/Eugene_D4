@@ -38,6 +38,13 @@ namespace MushroomDefense
         private const float MushroomBarOutlineWidthPadding = 0.06f;
         private const float MushroomBarOutlineHeightPadding = 0.04f;
         private const float MushroomBarsDividerHeight = 0.025f;
+        private const float HudPanelMarginX = 20f;
+        private const float HudPanelMarginY = -20f;
+        private const float CurrencyPanelWidth = 280f;
+        private const float CurrencyPanelHeight = 90f;
+        private const float WavePanelWidth = 270f;
+        private const float WavePanelHeight = 90f;
+        private const float WavePanelTextScale = 0.9f;
 
         private const int SpawnCost = 15;
         private const int HealCost = 12;
@@ -73,6 +80,7 @@ namespace MushroomDefense
         private Sprite _coinSprite;
         private Sprite _arrowSprite;
         private Sprite _heartSprite;
+        private Sprite _uiBackgroundSprite;
         private Sprite _spawnButtonIconSprite;
         private Sprite[] _mushroomSprites;
         private Sprite[] _tickSprites;
@@ -168,6 +176,7 @@ namespace MushroomDefense
             _coinSprite = LoadEditorSprite("Assets/Art/coin.png");
             _arrowSprite = LoadEditorSprite("Assets/Art/arrow.png");
             _heartSprite = LoadEditorSprite("Assets/Art/heart.png");
+            _uiBackgroundSprite = LoadEditorSprite("Assets/Art/ui_bkg.png");
             _spawnButtonIconSprite = LoadEditorSprite("Assets/Art/spawn.png");
 
             _mushroomSprites = new[]
@@ -333,9 +342,32 @@ namespace MushroomDefense
             canvasObject.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             canvasObject.AddComponent<GraphicRaycaster>();
 
-            _currencyText = CreateText("Currency", new Vector2(1f, 1f), new Vector2(-20f, -20f), TextAnchor.UpperRight, 28);
-            _waveText = CreateText("Wave", new Vector2(0f, 1f), new Vector2(20f, -20f), TextAnchor.UpperLeft, 28);
-            _nextWaveText = CreateText("NextWave", new Vector2(0.5f, 1f), new Vector2(0f, -20f), TextAnchor.UpperCenter, 26);
+            var beigePanelColor = new Color(0.88f, 0.82f, 0.72f, 0.95f);
+
+            var currencyPanel = CreateHudPanel("CurrencyPanel", new Vector2(1f, 1f), new Vector2(-HudPanelMarginX, HudPanelMarginY), new Vector2(1f, 1f), new Vector2(CurrencyPanelWidth, CurrencyPanelHeight), beigePanelColor);
+            _currencyText = CreateText("Currency", new Vector2(0.5f, 0.5f), Vector2.zero, TextAnchor.MiddleCenter, 32, currencyPanel.transform);
+            _currencyText.rectTransform.sizeDelta = new Vector2(CurrencyPanelWidth - 28f, CurrencyPanelHeight - 20f);
+            _currencyText.color = new Color(0.17f, 0.14f, 0.09f, 1f);
+
+            var wavePanel = CreateHudPanel("WavePanel", new Vector2(0f, 1f), new Vector2(HudPanelMarginX, HudPanelMarginY), new Vector2(0f, 1f), new Vector2(WavePanelWidth, WavePanelHeight), beigePanelColor);
+            var waveTextRoot = new GameObject("WaveTextRoot");
+            waveTextRoot.transform.SetParent(wavePanel.transform, false);
+            var waveTextRootRect = waveTextRoot.AddComponent<RectTransform>();
+            waveTextRootRect.anchorMin = Vector2.zero;
+            waveTextRootRect.anchorMax = Vector2.one;
+            waveTextRootRect.pivot = new Vector2(0.5f, 0.5f);
+            waveTextRootRect.offsetMin = Vector2.zero;
+            waveTextRootRect.offsetMax = Vector2.zero;
+            waveTextRootRect.localScale = Vector3.one * WavePanelTextScale;
+
+            _waveText = CreateText("Wave", new Vector2(0.5f, 0.75f), Vector2.zero, TextAnchor.MiddleLeft, 28, waveTextRoot.transform);
+            ConfigureWavePanelTextRect(_waveText, true);
+            _waveText.color = new Color(0.17f, 0.14f, 0.09f, 1f);
+
+            _nextWaveText = CreateText("NextWave", new Vector2(0.5f, 0.25f), Vector2.zero, TextAnchor.MiddleLeft, 26, waveTextRoot.transform);
+            ConfigureWavePanelTextRect(_nextWaveText, false);
+            _nextWaveText.color = new Color(0.17f, 0.14f, 0.09f, 1f);
+
             _warningText = CreateText("Warning", new Vector2(0.5f, 0.8f), new Vector2(0f, 0f), TextAnchor.MiddleCenter, 34);
             _warningText.color = new Color(1f, 0.3f, 0.3f, 0f);
 
@@ -360,6 +392,42 @@ namespace MushroomDefense
             var restartButton = CreateButton("Restart", new Vector2(0.5f, 0.32f), Vector2.zero, RestartGame, _endPanel.transform);
             restartButton.GetComponentInChildren<Text>().fontSize = 30;
             _endPanel.SetActive(false);
+        }
+
+        private GameObject CreateHudPanel(string name, Vector2 anchor, Vector2 anchoredPosition, Vector2 pivot, Vector2 size, Color color)
+        {
+            var panel = new GameObject(name);
+            panel.transform.SetParent(_canvas.transform, false);
+
+            var rect = panel.AddComponent<RectTransform>();
+            rect.anchorMin = anchor;
+            rect.anchorMax = anchor;
+            rect.pivot = pivot;
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = size;
+
+            var image = panel.AddComponent<Image>();
+            image.sprite = _uiBackgroundSprite ?? _fallbackSprite;
+            image.type = Image.Type.Sliced;
+            image.color = color;
+            return panel;
+        }
+
+        private static void ConfigureWavePanelTextRect(Text text, bool topRow)
+        {
+            var rect = text.rectTransform;
+            rect.anchorMin = new Vector2(0f, topRow ? 0.5f : 0f);
+            rect.anchorMax = new Vector2(1f, topRow ? 1f : 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.offsetMin = new Vector2(18f, 4f);
+            rect.offsetMax = new Vector2(-18f, -4f);
+            rect.anchoredPosition = Vector2.zero;
+
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            text.resizeTextForBestFit = true;
+            text.resizeTextMinSize = 14;
+            text.resizeTextMaxSize = 32;
         }
         private void HandlePointerInput()
         {
@@ -740,9 +808,9 @@ namespace MushroomDefense
 
         private void RefreshUi()
         {
-            _currencyText.text = $"{_currency}";
-            _waveText.text = $"Wave: {_currentWave}/{MaxWaves}";
-            _nextWaveText.text = _waveInProgress ? $"Enemies alive: {_enemies.Count}" : $"Next wave in: {Mathf.CeilToInt(Mathf.Max(0f, _timeToNextWave))}s";
+            _currencyText.text = $"Coins: {_currency}";
+            _waveText.text = $"Waves Left: {Mathf.Max(0, MaxWaves - _currentWave)}";
+            _nextWaveText.text = _waveInProgress ? "Next Wave: In Progress" : $"Next Wave: {Mathf.CeilToInt(Mathf.Max(0f, _timeToNextWave))}s";
 
             if (_spawnCostText != null) _spawnCostText.text = SpawnCost.ToString();
             if (_upgradeCostText != null)
