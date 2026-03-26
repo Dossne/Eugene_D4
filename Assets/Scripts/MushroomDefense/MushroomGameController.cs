@@ -95,7 +95,7 @@ namespace MushroomDefense
 
         private readonly float[] _mushroomMaxHp = { 30f, 50f, 80f, 120f };
         private readonly float[] _mushroomDamage = { 3f, 6f, 10f, 15f };
-        private readonly float[] _mushroomAttackInterval = { 1.0f, 0.85f, 0.7f, 0.55f };
+        private readonly float[] _mushroomAttackInterval = { 1.3f, 1.1f, 0.9f, 0.7f };
         private readonly float[] _mushroomAttackRange = { 2.2f, 2.6f, 3.0f, 3.4f };
         private readonly int[] _mushroomCurrencyAmount = { 4, 7, 11, 16 };
         private readonly float[] _mushroomCurrencyInterval = { 4.5f, 4f, 3.5f, 3f };
@@ -108,7 +108,7 @@ namespace MushroomDefense
         private readonly float[] _enemyMaxHp = { 20f, 40f, 70f };
         private readonly float[] _enemyDamage = { 4f, 7f, 11f };
         private readonly float[] _enemyAttackInterval = { 1.2f, 1.0f, 0.8f };
-        private readonly float[] _enemyMoveSpeed = { 1.4f, 1.1f, 0.8f };
+        private readonly float[] _enemyMoveSpeed = { 1.0f, 0.8f, 0.6f };
         private readonly int[] _enemyReward = { 8, 14, 24 };
 
         private readonly List<MushroomData> _mushrooms = new List<MushroomData>();
@@ -1277,6 +1277,7 @@ namespace MushroomDefense
                 Icon = iconImage,
                 StartWorldPosition = (Vector2)mushroom.Renderer.transform.position + Vector2.up * CurrencyPopupStartOffsetY,
                 RiseDuration = 0.28f,
+                HoldDuration = 0f,
                 FadeDuration = 0.45f
             });
         }
@@ -1299,15 +1300,15 @@ namespace MushroomDefense
                 popup.RootRect.anchoredPosition = localPoint;
 
                 var alpha = 1f;
-                if (popup.Elapsed > popup.RiseDuration)
+                if (popup.Elapsed > popup.RiseDuration + popup.HoldDuration)
                 {
-                    var fadeT = popup.FadeDuration <= 0f ? 1f : Mathf.Clamp01((popup.Elapsed - popup.RiseDuration) / popup.FadeDuration);
+                    var fadeT = popup.FadeDuration <= 0f ? 1f : Mathf.Clamp01((popup.Elapsed - popup.RiseDuration - popup.HoldDuration) / popup.FadeDuration);
                     alpha = 1f - fadeT;
                 }
 
                 SetCurrencyPopupAlpha(popup, alpha);
 
-                if (popup.Elapsed >= popup.RiseDuration + popup.FadeDuration)
+                if (popup.Elapsed >= popup.RiseDuration + popup.HoldDuration + popup.FadeDuration)
                 {
                     if (popup.RootRect != null) Destroy(popup.RootRect.gameObject);
                     _currencyPopups.RemoveAt(i);
@@ -1369,8 +1370,9 @@ namespace MushroomDefense
                 AmountText = amountText,
                 Icon = null,
                 StartWorldPosition = (Vector2)enemy.Renderer.transform.position + Vector2.up * EnemyDamagePopupStartOffsetY,
-                RiseDuration = 0.24f,
-                FadeDuration = 0.42f
+                RiseDuration = 0.42f,
+                HoldDuration = 0.35f,
+                FadeDuration = 0.52f
             });
         }
 
@@ -1986,6 +1988,7 @@ namespace MushroomDefense
             public Vector2 StartWorldPosition;
             public float Elapsed;
             public float RiseDuration;
+            public float HoldDuration;
             public float FadeDuration;
         }
 
