@@ -29,6 +29,8 @@ namespace MushroomDefense
         private const float TileGapInTileWidths = 0.1f;
         // 0 = bottom edge of tile, 1 = top edge of tile
         private const float MushroomVisualYInCell = 0.3f;
+        private const int MushroomSortBaseOrder = 3;
+        private const float MushroomSortWorldUnitsPerOrder = 1.8f;
         private const float ActionButtonWorldOffsetXInCell = 0.3f;
         private const float ActionButtonWorldOffsetYInCell = 0.35f;
         private const float ActionButtonVerticalGap = -6f;
@@ -99,8 +101,8 @@ namespace MushroomDefense
         private readonly float[] _mushroomDamage = { 3f, 6f, 10f, 15f };
         private readonly float[] _mushroomAttackInterval = { 1.3f, 1.1f, 0.9f, 0.7f };
         private readonly float[] _mushroomAttackRangeByScreenHeight = { 0.2f, 0.3333f, 0.4667f, 0.6f };
-        private readonly int[] _mushroomCurrencyAmount = { 4, 7, 11, 16 };
-        private readonly float[] _mushroomCurrencyInterval = { 4.5f, 4f, 3.5f, 3f };
+        private readonly int[] _mushroomCurrencyAmount = { 3, 5, 8, 12 };
+        private readonly float[] _mushroomCurrencyInterval = { 5.5f, 5f, 4.6f, 4.2f };
         private readonly float[] _mushroomBarsPivotYOffset = { 0.8f, 1.05f, 1.3f, 1.55f };
         private readonly float[] _mushroomLaserStartYOffset = { 0.5f, 0.75f, 1.0f, 1.22f };
         private readonly float[] _mushroomIdleMinDelay = { 1.9f, 2.8f, 2.85f, 2.45f };
@@ -139,7 +141,7 @@ namespace MushroomDefense
         private Sprite[] _hareSprites;
         private Sprite _fallbackSprite;
 
-        private int _currency = 50;
+        private int _currency = 35;
         private int _currentWave;
         private float _timeToNextWave = WaveDelaySeconds;
         private bool _waveInProgress;
@@ -909,7 +911,7 @@ namespace MushroomDefense
             var mushroomObject = new GameObject("Mushroom_L1");
             var renderer = mushroomObject.AddComponent<SpriteRenderer>();
             renderer.sprite = _mushroomSprites[0];
-            renderer.sortingOrder = 3;
+            renderer.sortingOrder = MushroomSortBaseOrder - Mathf.RoundToInt(mushroomVisualPos.y / MushroomSortWorldUnitsPerOrder);
             renderer.color = renderer.sprite == _fallbackSprite ? new Color(0.8f, 0.75f, 0.2f) : Color.white;
             mushroomObject.transform.localScale = Vector3.one * MushroomScale;
             mushroomObject.transform.position = new Vector3(mushroomVisualPos.x, mushroomVisualPos.y, 0f);
@@ -1923,6 +1925,7 @@ namespace MushroomDefense
 
         private void UpdateMushroomBars(MushroomData mushroom)
         {
+            UpdateMushroomSorting(mushroom);
             mushroom.WorldPosition = GetCellCenter(mushroom.Cell);
             mushroom.BarsRoot.transform.position = mushroom.Renderer.transform.position + Vector3.up * GetMushroomBarsPivotYOffset(mushroom.Level);
             var hpRatio = Mathf.Clamp01(mushroom.Health / GetMushroomMaxHp(mushroom.Level));
@@ -1942,6 +1945,40 @@ namespace MushroomDefense
             if (mushroom.CurrencyDivider != null)
             {
                 mushroom.CurrencyDivider.gameObject.SetActive(showBars);
+            }
+        }
+
+        private void UpdateMushroomSorting(MushroomData mushroom)
+        {
+            if (mushroom == null || mushroom.Renderer == null) return;
+
+            var baseY = mushroom.BaseVisualPosition.y;
+            var mushroomOrder = MushroomSortBaseOrder - Mathf.RoundToInt(baseY / MushroomSortWorldUnitsPerOrder);
+            mushroom.Renderer.sortingOrder = mushroomOrder;
+
+            if (mushroom.BarsRoot == null) return;
+            var barRenderers = mushroom.BarsRoot.GetComponentsInChildren<SpriteRenderer>(true);
+            for (var i = 0; i < barRenderers.Length; i++)
+            {
+                var barRenderer = barRenderers[i];
+                if (barRenderer == null) continue;
+
+                if (barRenderer == mushroom.CurrencyDivider)
+                {
+                    barRenderer.sortingOrder = mushroomOrder + 4;
+                }
+                else if (barRenderer == mushroom.CurrencyBar || barRenderer == mushroom.HealthBar)
+                {
+                    barRenderer.sortingOrder = mushroomOrder + 3;
+                }
+                else if (barRenderer.gameObject.name == "Outline")
+                {
+                    barRenderer.sortingOrder = mushroomOrder + 1;
+                }
+                else
+                {
+                    barRenderer.sortingOrder = mushroomOrder + 2;
+                }
             }
         }
 
