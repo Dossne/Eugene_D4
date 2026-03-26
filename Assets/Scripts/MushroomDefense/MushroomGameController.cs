@@ -38,6 +38,13 @@ namespace MushroomDefense
         private const float MushroomBarOutlineWidthPadding = 0.06f;
         private const float MushroomBarOutlineHeightPadding = 0.04f;
         private const float MushroomBarsDividerHeight = 0.025f;
+        private static readonly Vector3 MushroomCurrencyCompressScale = new Vector3(1.08f, 0.9f, 1f);
+        private static readonly Vector3 MushroomCurrencyBounceTopScale = new Vector3(0.94f, 1.08f, 1f);
+        private const float MushroomCurrencyShakeDuration = 1f;
+        private const float MushroomCurrencyShakeFrequency = 11f;
+        private const float MushroomCurrencyShakeStrength = 0.02f;
+        private const float MushroomCurrencyBounceUpDuration = 0.18f;
+        private const float MushroomCurrencyBounceDownDuration = 0.2f;
         private const float HudPanelMarginX = 20f;
         private const float HudPanelMarginY = -20f;
         private const float CurrencyPanelWidth = 170;
@@ -526,15 +533,20 @@ namespace MushroomDefense
             foreach (var mushroom in _mushrooms.ToArray())
             {
                 mushroom.AttackCooldown -= deltaTime;
-                mushroom.CurrencyTimer += deltaTime;
-
-                var interval = GetMushroomCurrencyInterval(mushroom.Level);
-                if (mushroom.CurrencyTimer >= interval)
+                if (mushroom.IsCurrencyAnimationActive)
                 {
-                    mushroom.CurrencyTimer -= interval;
-                    var generatedAmount = GetMushroomCurrencyAmount(mushroom.Level);
-                    AddCurrency(generatedAmount);
-                    SpawnCurrencyPopup(mushroom, generatedAmount);
+                    UpdateMushroomCurrencyAnimation(mushroom, deltaTime);
+                }
+                else
+                {
+                    mushroom.CurrencyTimer += deltaTime;
+
+                    var interval = GetMushroomCurrencyInterval(mushroom.Level);
+                    if (mushroom.CurrencyTimer >= interval)
+                    {
+                        mushroom.CurrencyTimer -= interval;
+                        StartMushroomCurrencyAnimation(mushroom, GetMushroomCurrencyAmount(mushroom.Level));
+                    }
                 }
 
                 if (_enemies.Count == 0)
@@ -714,6 +726,7 @@ namespace MushroomDefense
                 Renderer = renderer,
                 Collider = collider,
                 Cell = _selectedCell,
+                DefaultScale = Vector3.one * MushroomScale,
                 BarsRoot = barsRoot,
                 CurrencyBar = currencyBar,
                 HealthBar = hpBar,
@@ -758,6 +771,69 @@ namespace MushroomDefense
 
         private void HarvestMushroomClick(MushroomData mushroom) => AddCurrency(GetMushroomCurrencyAmount(mushroom.Level));
         private void AddCurrency(int amount) => _currency += amount;
+
+        private void StartMushroomCurrencyAnimation(MushroomData mushroom, int amount)
+        {
+            if (mushroom == null || mushroom.Renderer == null) return;
+
+            mushroom.IsCurrencyAnimationActive = true;
+            mushroom.CurrencyAnimationTime = 0f;
+            mushroom.PendingCurrencyAmount = amount;
+            mushroom.CurrencyPopupTriggered = false;
+            mushroom.DefaultScale = Vector3.one * MushroomScale;
+            mushroom.Renderer.transform.localScale = mushroom.DefaultScale;
+        }
+
+        private void UpdateMushroomCurrencyAnimation(MushroomData mushroom, float deltaTime)
+        {
+            if (mushroom == null || mushroom.Renderer == null) return;
+
+            mushroom.CurrencyAnimationTime += deltaTime;
+            var baseScale = mushroom.DefaultScale;
+            var compressedScale = Vector3.Scale(baseScale, MushroomCurrencyCompressScale);
+            var bounceTopScale = Vector3.Scale(baseScale, MushroomCurrencyBounceTopScale);
+
+            if (mushroom.CurrencyAnimationTime <= MushroomCurrencyShakeDuration)
+            {
+                var t = Mathf.Clamp01(mushroom.CurrencyAnimationTime / MushroomCurrencyShakeDuration);
+                var shakePhase = mushroom.CurrencyAnimationTime * MushroomCurrencyShakeFrequency * Mathf.PI * 2f;
+                var shakeX = Mathf.Sin(shakePhase) * MushroomCurrencyShakeStrength;
+                var scale = Vector3.Lerp(baseScale, compressedScale, t);
+                scale.x += shakeX;
+                scale.y -= Mathf.Abs(shakeX) * 0.35f;
+                mushroom.Renderer.transform.localScale = scale;
+                return;
+            }
+
+            var bounceTime = mushroom.CurrencyAnimationTime - MushroomCurrencyShakeDuration;
+            if (bounceTime <= MushroomCurrencyBounceUpDuration)
+            {
+                var t = Mathf.Clamp01(bounceTime / MushroomCurrencyBounceUpDuration);
+                mushroom.Renderer.transform.localScale = Vector3.Lerp(compressedScale, bounceTopScale, Mathf.SmoothStep(0f, 1f, t));
+                return;
+            }
+
+            if (!mushroom.CurrencyPopupTriggered)
+            {
+                AddCurrency(mushroom.PendingCurrencyAmount);
+                SpawnCurrencyPopup(mushroom, mushroom.PendingCurrencyAmount);
+                mushroom.CurrencyPopupTriggered = true;
+            }
+
+            var returnTime = bounceTime - MushroomCurrencyBounceUpDuration;
+            if (returnTime <= MushroomCurrencyBounceDownDuration)
+            {
+                var t = Mathf.Clamp01(returnTime / MushroomCurrencyBounceDownDuration);
+                mushroom.Renderer.transform.localScale = Vector3.Lerp(bounceTopScale, baseScale, Mathf.SmoothStep(0f, 1f, t));
+                return;
+            }
+
+            mushroom.Renderer.transform.localScale = baseScale;
+            mushroom.IsCurrencyAnimationActive = false;
+            mushroom.CurrencyAnimationTime = 0f;
+            mushroom.PendingCurrencyAmount = 0;
+            mushroom.CurrencyPopupTriggered = false;
+        }
 
         private void SpawnCurrencyPopup(MushroomData mushroom, int amount)
         {
@@ -1336,6 +1412,11 @@ namespace MushroomDefense
             public SpriteRenderer Renderer;
             public Collider2D Collider;
             public CellData Cell;
+            public Vector3 DefaultScale;
+            public bool IsCurrencyAnimationActive;
+            public float CurrencyAnimationTime;
+            public int PendingCurrencyAmount;
+            public bool CurrencyPopupTriggered;
             public GameObject BarsRoot;
             public SpriteRenderer CurrencyBar;
             public SpriteRenderer HealthBar;
