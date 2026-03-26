@@ -33,7 +33,7 @@ namespace MushroomDefense
         // 0 = bottom edge of tile, 1 = top edge of tile
         private const float MushroomVisualYInCell = 0.3f;
         private const int MushroomSortBaseOrder = 3;
-        private const float MushroomSortWorldUnitsPerOrder = 1.8f;
+        private const float MushroomSortOrdersPerWorldUnit = 100f;
         private const int EnemySortBaseOrder = 100;
         private const float ActionButtonWorldOffsetXInCell = 0.3f;
         private const float ActionButtonWorldOffsetYInCell = 0.35f;
@@ -99,7 +99,7 @@ namespace MushroomDefense
         private const int SpawnCost = 20;
         private const int HealCost = 16;
 
-        private readonly int[] _upgradeCostByLevel = { 0, 30, 70, 130 };
+        private readonly int[] _upgradeCostByLevel = { 0, 30, 70, 260 };
 
         private readonly float[] _mushroomMaxHp = { 30f, 50f, 80f, 120f };
         private readonly float[] _mushroomDamage = { 4f, 6f, 9f, 14f };
@@ -965,7 +965,7 @@ namespace MushroomDefense
             var mushroomObject = new GameObject("Mushroom_L1");
             var renderer = mushroomObject.AddComponent<SpriteRenderer>();
             renderer.sprite = _mushroomSprites[0];
-            renderer.sortingOrder = MushroomSortBaseOrder - Mathf.RoundToInt(mushroomVisualPos.y / MushroomSortWorldUnitsPerOrder);
+            renderer.sortingOrder = MushroomSortBaseOrder - Mathf.RoundToInt(mushroomVisualPos.y * MushroomSortOrdersPerWorldUnit);
             renderer.color = renderer.sprite == _fallbackSprite ? new Color(0.8f, 0.75f, 0.2f) : Color.white;
             mushroomObject.transform.localScale = Vector3.one * MushroomScale;
             mushroomObject.transform.position = new Vector3(mushroomVisualPos.x, mushroomVisualPos.y, 0f);
@@ -1639,8 +1639,11 @@ namespace MushroomDefense
             var bestDistance = float.MaxValue;
             foreach (var enemy in _enemies)
             {
-                if (!IsWorldPositionOnScreen(enemy.WorldPosition)) continue;
-                var distance = Vector2.Distance(origin, enemy.WorldPosition);
+                var enemyPosition = enemy != null && enemy.Renderer != null
+                    ? (Vector2)enemy.Renderer.transform.position
+                    : enemy.WorldPosition;
+                if (!IsWorldPositionOnScreen(enemyPosition)) continue;
+                var distance = Vector2.Distance(origin, enemyPosition);
                 if (distance > maxDistance || distance >= bestDistance) continue;
                 bestDistance = distance;
                 best = enemy;
@@ -2119,7 +2122,7 @@ namespace MushroomDefense
             if (mushroom == null || mushroom.Renderer == null) return;
 
             var baseY = mushroom.BaseVisualPosition.y;
-            var mushroomOrder = MushroomSortBaseOrder - Mathf.RoundToInt(baseY / MushroomSortWorldUnitsPerOrder);
+            var mushroomOrder = MushroomSortBaseOrder - Mathf.RoundToInt(baseY * MushroomSortOrdersPerWorldUnit);
             mushroom.Renderer.sortingOrder = mushroomOrder;
 
             if (mushroom.BarsRoot == null) return;
