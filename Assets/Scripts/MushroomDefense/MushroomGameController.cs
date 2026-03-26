@@ -26,6 +26,7 @@ namespace MushroomDefense
         private const float MushroomHitSfxVolume = 0.55f;
         private const float MushroomIdleSqueakSfxVolume = 0.38f;
         private const float MushroomCurrencySfxVolume = 0.5f;
+        private const float MushroomElderHootSfxVolume = 0.34f;
         private const float MushroomScale = 0.53f;
         private const float EnemyScale = MushroomScale;
         private const float EnemyAttackRange = 0.85f;
@@ -178,6 +179,7 @@ namespace MushroomDefense
         private AudioClip _mushroomHitSfxClip;
         private AudioClip _mushroomIdleSqueakSfxClip;
         private AudioClip _mushroomCurrencySfxClip;
+        private AudioClip _mushroomElderHootSfxClip;
         private AudioSource _musicSource;
         private AudioSource _sfxSource;
         private Sprite[] _mushroomSprites;
@@ -371,6 +373,13 @@ namespace MushroomDefense
                 _mushroomCurrencySfxClip = LoadEditorAudioClip("Assets/Sound/mushroom_currency_coin.mp3")
                     ?? Resources.Load<AudioClip>("Sound/mushroom_currency_coin")
                     ?? Resources.Load<AudioClip>("mushroom_currency_coin");
+            }
+
+            if (_mushroomElderHootSfxClip == null)
+            {
+                _mushroomElderHootSfxClip = LoadEditorAudioClip("Assets/Sound/mushroom_elder_hoot.mp3")
+                    ?? Resources.Load<AudioClip>("Sound/mushroom_elder_hoot")
+                    ?? Resources.Load<AudioClip>("mushroom_elder_hoot");
             }
         }
 
@@ -1125,6 +1134,7 @@ namespace MushroomDefense
             ResetMushroomCombatVisual(mushroom);
             mushroom.Renderer.flipX = mushroom.BaseFlipX;
             PlayMushroomIdleSqueakSfx(mushroom);
+            PlayMushroomElderHootSfx(mushroom);
 
             if (mushroom.IdleAnimationMode == MushroomIdleModeRotate)
             {
@@ -1947,6 +1957,13 @@ namespace MushroomDefense
         {
             if (_sfxSource == null || _mushroomCurrencySfxClip == null) return;
             _sfxSource.PlayOneShot(_mushroomCurrencySfxClip, MushroomCurrencySfxVolume);
+        }
+
+        private void PlayMushroomElderHootSfx(MushroomData mushroom)
+        {
+            if (mushroom == null || mushroom.Level < 3) return;
+            if (_sfxSource == null || _mushroomElderHootSfxClip == null) return;
+            _sfxSource.PlayOneShot(_mushroomElderHootSfxClip, MushroomElderHootSfxVolume);
         }
 
         private void RefreshUi()
