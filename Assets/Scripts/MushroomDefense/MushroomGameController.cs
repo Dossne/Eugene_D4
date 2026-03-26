@@ -1465,12 +1465,20 @@ namespace MushroomDefense
             var bestDistance = float.MaxValue;
             foreach (var enemy in _enemies)
             {
+                if (!IsWorldPositionOnScreen(enemy.WorldPosition)) continue;
                 var distance = Vector2.Distance(origin, enemy.WorldPosition);
                 if (distance > maxDistance || distance >= bestDistance) continue;
                 bestDistance = distance;
                 best = enemy;
             }
             return best;
+        }
+
+        private bool IsWorldPositionOnScreen(Vector2 worldPosition)
+        {
+            if (_mainCamera == null) return false;
+            var viewport = _mainCamera.WorldToViewportPoint(new Vector3(worldPosition.x, worldPosition.y, 0f));
+            return viewport.z >= 0f && viewport.x >= 0f && viewport.x <= 1f && viewport.y >= 0f && viewport.y <= 1f;
         }
 
         private MushroomData FindRandomMushroom()
