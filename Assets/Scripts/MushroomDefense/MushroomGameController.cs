@@ -133,6 +133,8 @@ namespace MushroomDefense
         private Text _spawnCostText;
         private Text _upgradeCostText;
         private Text _healCostText;
+        private Coroutine _warningFadeCoroutine;
+        private bool _isWarningVisible;
         private GameObject _endPanel;
         private Text _endTitle;
 
@@ -385,8 +387,12 @@ namespace MushroomDefense
             ConfigureWavePanelTextRect(_nextWaveText, false);
             _nextWaveText.color = new Color(0.17f, 0.14f, 0.09f, 1f);
 
-            _warningText = CreateText("Warning", new Vector2(0.5f, 0.8f), new Vector2(0f, 0f), TextAnchor.MiddleCenter, 34);
-            _warningText.color = new Color(1f, 0.3f, 0.3f, 0f);
+            _warningText = CreateText("Warning", new Vector2(0.5f, 0.72f), new Vector2(0f, 0f), TextAnchor.MiddleCenter, 40);
+            _warningText.fontStyle = FontStyle.Bold;
+            var warningOutline = _warningText.gameObject.AddComponent<Outline>();
+            warningOutline.effectColor = new Color(0f, 0f, 0f, 0.7f);
+            warningOutline.effectDistance = new Vector2(1f, -1f);
+            _warningText.color = new Color(1f, 0.08f, 0.08f, 0f);
 
             _spawnButton = CreateActionButton("Spawn", new Vector2(1f, 0f), new Vector2(-150f, 120f), SpawnMushroomOnSelectedCell, _spawnButtonIconSprite, out _spawnCostText);
             _upgradeButton = CreateActionButton("Upgrade", new Vector2(1f, 0f), new Vector2(-150f, 70f), UpgradeSelectedMushroom, _arrowSprite, out _upgradeCostText, null, _upgradeButtonSprite);
@@ -850,6 +856,10 @@ namespace MushroomDefense
             var amountText = CreateText("Amount", new Vector2(0.5f, 0.5f), Vector2.zero, TextAnchor.MiddleRight, 30, popupRoot.transform);
             amountText.text = $"+{amount}";
             amountText.color = new Color(1f, 0.98f, 0.78f, 1f);
+            amountText.fontStyle = FontStyle.Bold;
+            var amountOutline = amountText.gameObject.AddComponent<Outline>();
+            amountOutline.effectColor = new Color(0f, 0f, 0f, 0.95f);
+            amountOutline.effectDistance = new Vector2(1.5f, -1.5f);
             amountText.resizeTextForBestFit = true;
             amountText.resizeTextMinSize = 14;
             amountText.resizeTextMaxSize = 40;
@@ -951,13 +961,14 @@ namespace MushroomDefense
 
         private void ShowWarning(string text)
         {
-            StopCoroutine(nameof(FadeWarning));
+            if (_isWarningVisible) return;
             _warningText.text = text;
-            StartCoroutine(FadeWarning());
+            _warningFadeCoroutine = StartCoroutine(FadeWarning());
         }
 
         private IEnumerator FadeWarning()
         {
+            _isWarningVisible = true;
             var color = _warningText.color;
             color.a = 1f;
             _warningText.color = color;
@@ -974,6 +985,8 @@ namespace MushroomDefense
 
             color.a = 0f;
             _warningText.color = color;
+            _isWarningVisible = false;
+            _warningFadeCoroutine = null;
         }
 
         private void KillEnemy(EnemyData enemy)
