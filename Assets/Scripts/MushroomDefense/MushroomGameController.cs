@@ -16,7 +16,7 @@ namespace MushroomDefense
         private const int GridWidth = 4;
         private const int GridHeight = 4;
         private const float GridWidthScreenFraction = 0.6f;
-        private const float WaveDelaySeconds = 60f;
+        private const float WaveDelaySeconds = 30f;
         private const int MaxWaves = 10;
         private const float MushroomScale = 0.53f;
         private const float EnemyScale = MushroomScale;
@@ -983,7 +983,7 @@ namespace MushroomDefense
             UpdateMushroomBars(_selectedMushroom);
         }
 
-        private void HarvestMushroomClick(MushroomData mushroom) => AddCurrency(GetMushroomCurrencyAmount(mushroom.Level));
+        private void HarvestMushroomClick(MushroomData mushroom) { }
         private void AddCurrency(int amount) => _currency += amount;
 
         private void StartMushroomIdleAnimation(MushroomData mushroom)
