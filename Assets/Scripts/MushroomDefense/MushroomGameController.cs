@@ -781,7 +781,9 @@ namespace MushroomDefense
             enemy.AttackLeapDamageApplied = true;
             if (enemy.Target == null || enemy.Target.Health <= 0f) return;
 
-            enemy.Target.Health -= GetEnemyDamage(enemy.Level);
+            var damage = GetEnemyDamage(enemy.Level);
+            enemy.Target.Health -= damage;
+            SpawnMushroomDamagePopup(enemy.Target, damage);
             if (enemy.Target.Health <= 0f) KillMushroom(enemy.Target);
         }
 
@@ -1370,6 +1372,51 @@ namespace MushroomDefense
                 AmountText = amountText,
                 Icon = null,
                 StartWorldPosition = (Vector2)enemy.Renderer.transform.position + Vector2.up * EnemyDamagePopupStartOffsetY,
+                RiseDuration = 0.42f,
+                HoldDuration = 0.35f,
+                FadeDuration = 0.52f
+            });
+        }
+
+        private void SpawnMushroomDamagePopup(MushroomData mushroom, float damage)
+        {
+            if (mushroom == null || mushroom.Renderer == null || _canvas == null || _mainCamera == null) return;
+
+            var popupRoot = new GameObject("MushroomDamagePopup");
+            popupRoot.transform.SetParent(_canvas.transform, false);
+            var popupRect = popupRoot.AddComponent<RectTransform>();
+            popupRect.anchorMin = new Vector2(0.5f, 0.5f);
+            popupRect.anchorMax = new Vector2(0.5f, 0.5f);
+            popupRect.pivot = new Vector2(0.5f, 0.5f);
+            popupRect.sizeDelta = new Vector2(180f, 64f);
+
+            var amountText = CreateText("Amount", new Vector2(0.5f, 0.5f), Vector2.zero, TextAnchor.MiddleCenter, 30, popupRoot.transform);
+            amountText.text = $"-{FormatDamageValue(damage)}";
+            amountText.fontStyle = FontStyle.Bold;
+            amountText.color = new Color(1f, 0.18f, 0.18f, 1f);
+            amountText.resizeTextForBestFit = true;
+            amountText.resizeTextMinSize = 14;
+            amountText.resizeTextMaxSize = 42;
+            amountText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            amountText.verticalOverflow = VerticalWrapMode.Truncate;
+
+            var outline = amountText.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.95f);
+            outline.effectDistance = new Vector2(2f, -2f);
+
+            var textRect = amountText.rectTransform;
+            textRect.anchorMin = new Vector2(0.5f, 0.5f);
+            textRect.anchorMax = new Vector2(0.5f, 0.5f);
+            textRect.pivot = new Vector2(0.5f, 0.5f);
+            textRect.anchoredPosition = Vector2.zero;
+            textRect.sizeDelta = new Vector2(160f, 56f);
+
+            _currencyPopups.Add(new CurrencyPopupData
+            {
+                RootRect = popupRect,
+                AmountText = amountText,
+                Icon = null,
+                StartWorldPosition = (Vector2)mushroom.Renderer.transform.position + Vector2.up * EnemyDamagePopupStartOffsetY,
                 RiseDuration = 0.42f,
                 HoldDuration = 0.35f,
                 FadeDuration = 0.52f
