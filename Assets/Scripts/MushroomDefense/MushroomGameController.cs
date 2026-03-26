@@ -45,6 +45,11 @@ namespace MushroomDefense
         private const float MushroomCurrencyShakeStrength = 0.02f;
         private const float MushroomCurrencyBounceUpDuration = 0.18f;
         private const float MushroomCurrencyBounceDownDuration = 0.2f;
+        private const float MushroomIdleDuration = 0.62f;
+        private const float MushroomIdleSafetyBeforeCurrency = 0.08f;
+        private const float MushroomIdleFlipToggleInterval = 0.2f;
+        private const float MushroomIdleSingleFlipChance = 0.5f;
+        private const float MushroomIdleJumpChance = 0.5f;
         private const float HudPanelMarginX = 20f;
         private const float HudPanelMarginY = -20f;
         private const float CurrencyPanelWidth = 170;
@@ -74,6 +79,9 @@ namespace MushroomDefense
         private readonly int[] _mushroomCurrencyAmount = { 4, 7, 11, 16 };
         private readonly float[] _mushroomCurrencyInterval = { 4.5f, 4f, 3.5f, 3f };
         private readonly float[] _mushroomBarsPivotYOffset = { 0.8f, 1.05f, 1.3f, 1.55f };
+        private readonly float[] _mushroomIdleMinDelay = { 1.9f, 2.8f, 3.8f, 4.8f };
+        private readonly float[] _mushroomIdleMaxDelay = { 3.0f, 4.0f, 5.2f, 6.4f };
+        private readonly float[] _mushroomIdleIntensity = { 1f, 0.72f, 0.45f, 0.32f };
 
         private readonly float[] _enemyMaxHp = { 20f, 40f, 70f };
         private readonly float[] _enemyDamage = { 4f, 7f, 11f };
@@ -545,13 +553,30 @@ namespace MushroomDefense
                 }
                 else
                 {
-                    mushroom.CurrencyTimer += deltaTime;
+                    if (mushroom.IsIdleAnimationActive)
+                    {
+                        UpdateMushroomIdleAnimation(mushroom, deltaTime);
+                    }
 
+                    mushroom.CurrencyTimer += deltaTime;
                     var interval = GetMushroomCurrencyInterval(mushroom.Level);
+                    var timeUntilCurrency = interval - mushroom.CurrencyTimer;
                     if (mushroom.CurrencyTimer >= interval)
                     {
+                        if (mushroom.IsIdleAnimationActive)
+                        {
+                            StopMushroomIdleAnimation(mushroom);
+                        }
                         mushroom.CurrencyTimer -= interval;
                         StartMushroomCurrencyAnimation(mushroom, GetMushroomCurrencyAmount(mushroom.Level));
+                    }
+                    else if (!mushroom.IsIdleAnimationActive)
+                    {
+                        mushroom.NextIdleDelay -= deltaTime;
+                        if (mushroom.NextIdleDelay <= 0f && timeUntilCurrency > MushroomIdleDuration + MushroomIdleSafetyBeforeCurrency)
+                        {
+                            StartMushroomIdleAnimation(mushroom);
+                        }
                     }
                 }
 
@@ -733,6 +758,9 @@ namespace MushroomDefense
                 Collider = collider,
                 Cell = _selectedCell,
                 DefaultScale = Vector3.one * MushroomScale,
+                BaseVisualPosition = new Vector3(mushroomVisualPos.x, mushroomVisualPos.y, 0f),
+                BaseFlipX = false,
+                NextIdleDelay = GetRandomMushroomIdleDelay(1),
                 BarsRoot = barsRoot,
                 CurrencyBar = currencyBar,
                 HealthBar = hpBar,
@@ -759,7 +787,13 @@ namespace MushroomDefense
             _selectedMushroom.Level++;
             _selectedMushroom.Renderer.sprite = _mushroomSprites[_selectedMushroom.Level - 1];
             var mushroomVisualPos = GetMushroomVisualPosition(_selectedMushroom.Cell);
-            _selectedMushroom.Renderer.transform.position = new Vector3(mushroomVisualPos.x, mushroomVisualPos.y, 0f);
+            _selectedMushroom.BaseVisualPosition = new Vector3(mushroomVisualPos.x, mushroomVisualPos.y, 0f);
+            _selectedMushroom.DefaultScale = Vector3.one * MushroomScale;
+            _selectedMushroom.Renderer.transform.position = _selectedMushroom.BaseVisualPosition;
+            _selectedMushroom.Renderer.transform.rotation = Quaternion.identity;
+            _selectedMushroom.Renderer.transform.localScale = _selectedMushroom.DefaultScale;
+            _selectedMushroom.Renderer.flipX = _selectedMushroom.BaseFlipX;
+            _selectedMushroom.NextIdleDelay = GetRandomMushroomIdleDelay(_selectedMushroom.Level);
             _selectedMushroom.Health = GetMushroomMaxHp(_selectedMushroom.Level);
             _selectedMushroom.Renderer.gameObject.name = $"Mushroom_L{_selectedMushroom.Level}";
             UpdateMushroomBars(_selectedMushroom);
@@ -778,16 +812,123 @@ namespace MushroomDefense
         private void HarvestMushroomClick(MushroomData mushroom) => AddCurrency(GetMushroomCurrencyAmount(mushroom.Level));
         private void AddCurrency(int amount) => _currency += amount;
 
+        private void StartMushroomIdleAnimation(MushroomData mushroom)
+        {
+            if (mushroom == null || mushroom.Renderer == null) return;
+            mushroom.IsIdleAnimationActive = true;
+            mushroom.IdleAnimationTime = 0f;
+            mushroom.IdleDirection = Random.value < 0.5f ? -1f : 1f;
+            mushroom.IdleAnimationMode = (mushroom.Level >= 3 || Random.value >= MushroomIdleJumpChance) ? 2 : 1;
+            mushroom.IdleFlipMode = 0;
+            mushroom.IdleFlipTimer = 0f;
+            mushroom.IdleFlipBackDone = false;
+            mushroom.Renderer.flipX = mushroom.BaseFlipX;
+
+            if (mushroom.IdleAnimationMode == 2)
+            {
+                mushroom.IdleFlipMode = Random.value < MushroomIdleSingleFlipChance ? 1 : 2;
+                mushroom.Renderer.flipX = !mushroom.BaseFlipX;
+            }
+        }
+
+        private void UpdateMushroomIdleAnimation(MushroomData mushroom, float deltaTime)
+        {
+            if (mushroom == null || mushroom.Renderer == null) return;
+
+            mushroom.IdleAnimationTime += deltaTime;
+            var t = Mathf.Clamp01(mushroom.IdleAnimationTime / MushroomIdleDuration);
+            var intensity = GetMushroomIdleIntensity(mushroom.Level);
+            var defaultScale = mushroom.DefaultScale;
+            var isJumpMode = mushroom.IdleAnimationMode == 1;
+
+            var jumpOffset = 0f;
+            var scale = defaultScale;
+            if (isJumpMode)
+            {
+                var squashScale = Vector3.Scale(defaultScale, new Vector3(1f + 0.08f * intensity, 1f - 0.09f * intensity, 1f));
+                var stretchScale = Vector3.Scale(defaultScale, new Vector3(1f - 0.06f * intensity, 1f + 0.07f * intensity, 1f));
+                if (t < 0.35f)
+                {
+                    var phaseT = Mathf.Clamp01(t / 0.35f);
+                    scale = Vector3.Lerp(defaultScale, squashScale, Mathf.SmoothStep(0f, 1f, phaseT));
+                }
+                else if (t < 0.68f)
+                {
+                    var phaseT = Mathf.Clamp01((t - 0.35f) / 0.33f);
+                    scale = Vector3.Lerp(squashScale, stretchScale, Mathf.SmoothStep(0f, 1f, phaseT));
+                }
+                else
+                {
+                    var phaseT = Mathf.Clamp01((t - 0.68f) / 0.32f);
+                    scale = Vector3.Lerp(stretchScale, defaultScale, Mathf.SmoothStep(0f, 1f, phaseT));
+                }
+                jumpOffset = 0.28f * intensity * Mathf.Sin(t * Mathf.PI);
+            }
+
+            mushroom.Renderer.transform.position = mushroom.BaseVisualPosition + Vector3.up * jumpOffset;
+            mushroom.Renderer.transform.localScale = scale;
+            mushroom.Renderer.transform.rotation = Quaternion.identity;
+            if (!isJumpMode && mushroom.IdleFlipMode == 2)
+            {
+                mushroom.IdleFlipTimer += deltaTime;
+                if (!mushroom.IdleFlipBackDone && mushroom.IdleFlipTimer >= MushroomIdleFlipToggleInterval)
+                {
+                    mushroom.Renderer.flipX = mushroom.BaseFlipX;
+                    mushroom.IdleFlipBackDone = true;
+                }
+            }
+
+            if (t >= 1f)
+            {
+                StopMushroomIdleAnimation(mushroom);
+                mushroom.NextIdleDelay = GetRandomMushroomIdleDelay(mushroom.Level);
+            }
+        }
+
+        private void StopMushroomIdleAnimation(MushroomData mushroom)
+        {
+            if (mushroom == null || mushroom.Renderer == null) return;
+            mushroom.IsIdleAnimationActive = false;
+            mushroom.IdleAnimationTime = 0f;
+            mushroom.Renderer.transform.position = mushroom.BaseVisualPosition;
+            mushroom.Renderer.transform.localScale = mushroom.DefaultScale;
+            mushroom.Renderer.transform.rotation = Quaternion.identity;
+            mushroom.Renderer.flipX = mushroom.BaseFlipX;
+            mushroom.IdleAnimationMode = 0;
+            mushroom.IdleFlipMode = 0;
+            mushroom.IdleFlipTimer = 0f;
+            mushroom.IdleFlipBackDone = false;
+        }
+
+        private float GetRandomMushroomIdleDelay(int level)
+        {
+            var idx = Mathf.Clamp(level - 1, 0, _mushroomIdleMinDelay.Length - 1);
+            return Random.Range(_mushroomIdleMinDelay[idx], _mushroomIdleMaxDelay[idx]);
+        }
+
+        private float GetMushroomIdleIntensity(int level)
+        {
+            var idx = Mathf.Clamp(level - 1, 0, _mushroomIdleIntensity.Length - 1);
+            return _mushroomIdleIntensity[idx];
+        }
+
         private void StartMushroomCurrencyAnimation(MushroomData mushroom, int amount)
         {
             if (mushroom == null || mushroom.Renderer == null) return;
 
+            if (mushroom.IsIdleAnimationActive)
+            {
+                StopMushroomIdleAnimation(mushroom);
+            }
             mushroom.IsCurrencyAnimationActive = true;
             mushroom.CurrencyAnimationTime = 0f;
             mushroom.PendingCurrencyAmount = amount;
             mushroom.CurrencyPopupTriggered = false;
             mushroom.DefaultScale = Vector3.one * MushroomScale;
+            mushroom.Renderer.transform.position = mushroom.BaseVisualPosition;
+            mushroom.Renderer.transform.rotation = Quaternion.identity;
             mushroom.Renderer.transform.localScale = mushroom.DefaultScale;
+            mushroom.Renderer.flipX = mushroom.BaseFlipX;
         }
 
         private void UpdateMushroomCurrencyAnimation(MushroomData mushroom, float deltaTime)
@@ -839,6 +980,7 @@ namespace MushroomDefense
             mushroom.CurrencyAnimationTime = 0f;
             mushroom.PendingCurrencyAmount = 0;
             mushroom.CurrencyPopupTriggered = false;
+            mushroom.NextIdleDelay = GetRandomMushroomIdleDelay(mushroom.Level);
         }
 
         private void SpawnCurrencyPopup(MushroomData mushroom, int amount)
@@ -1426,10 +1568,20 @@ namespace MushroomDefense
             public Collider2D Collider;
             public CellData Cell;
             public Vector3 DefaultScale;
+            public Vector3 BaseVisualPosition;
+            public bool BaseFlipX;
             public bool IsCurrencyAnimationActive;
             public float CurrencyAnimationTime;
             public int PendingCurrencyAmount;
             public bool CurrencyPopupTriggered;
+            public bool IsIdleAnimationActive;
+            public float IdleAnimationTime;
+            public float NextIdleDelay;
+            public float IdleDirection;
+            public int IdleAnimationMode;
+            public int IdleFlipMode;
+            public float IdleFlipTimer;
+            public bool IdleFlipBackDone;
             public GameObject BarsRoot;
             public SpriteRenderer CurrencyBar;
             public SpriteRenderer HealthBar;
