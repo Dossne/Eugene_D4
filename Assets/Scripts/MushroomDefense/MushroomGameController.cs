@@ -45,6 +45,9 @@ namespace MushroomDefense
         private const float WavePanelWidth = 270f;
         private const float WavePanelHeight = 90f;
         private const float WavePanelTextScale = 0.9f;
+        private const int CheatCurrencyBonus = 1000;
+        private const KeyCode CheatCurrencyKey = KeyCode.F8;
+        private const KeyCode CheatNextWaveKey = KeyCode.W;
 
         private const int SpawnCost = 15;
         private const int HealCost = 12;
@@ -144,6 +147,7 @@ namespace MushroomDefense
         {
             if (_gameEnded) return;
 
+            HandleCheatInput();
             HandlePointerInput();
             TickMushrooms(Time.deltaTime);
             TickEnemies(Time.deltaTime);
@@ -456,6 +460,19 @@ namespace MushroomDefense
             }
 
             ClearSelection();
+        }
+
+        private void HandleCheatInput()
+        {
+            if (Input.GetKeyDown(CheatCurrencyKey))
+            {
+                AddCurrency(CheatCurrencyBonus);
+            }
+
+            if (Input.GetKeyDown(CheatNextWaveKey) && !_waveInProgress && _currentWave < MaxWaves)
+            {
+                _timeToNextWave = 0f;
+            }
         }
 
         private void TickMushrooms(float deltaTime)
@@ -1102,6 +1119,7 @@ namespace MushroomDefense
             var currencyFillWidth = Mathf.Max(minFillWidth, currencyRatio * MushroomBarWidth);
             mushroom.HealthBar.transform.localScale = new Vector3(healthFillWidth, mushroom.HealthBar.transform.localScale.y, 1f);
             mushroom.CurrencyBar.transform.localScale = new Vector3(currencyFillWidth, mushroom.CurrencyBar.transform.localScale.y, 1f);
+            mushroom.HealthBar.transform.localPosition = new Vector3(-(MushroomBarWidth - healthFillWidth) * 0.5f, 0f, 0f);
             mushroom.CurrencyBar.transform.localPosition = new Vector3(-(MushroomBarWidth - currencyFillWidth) * 0.5f, 0f, 0f);
 
             var showBars = _selectedMushroom == mushroom;
