@@ -18,10 +18,10 @@ namespace MushroomDefense
         private const float GridWidthScreenFraction = 0.6f;
         private const float WaveDelaySeconds = 30f;
         private const int MaxWaves = 10;
-        private const float EnemyWaveHpBaseMultiplier = 0.8f;
-        private const float EnemyWaveHpStepMultiplier = 0.18f;
-        private const float EnemyWaveDamageBaseMultiplier = 0.9f;
-        private const float EnemyWaveDamageStepMultiplier = 0.1f;
+        private const float EnemyWaveHpBaseMultiplier = 0.7f;
+        private const float EnemyWaveHpStepMultiplier = 0.28f;
+        private const float EnemyWaveDamageBaseMultiplier = 0.8f;
+        private const float EnemyWaveDamageStepMultiplier = 0.16f;
         private const float MushroomScale = 0.53f;
         private const float EnemyScale = MushroomScale;
         private const float EnemyAttackRange = 0.85f;
@@ -96,17 +96,17 @@ namespace MushroomDefense
         private const KeyCode CheatNextWaveKey = KeyCode.W;
         private const KeyCode CheatLaserKey = KeyCode.L;
 
-        private const int SpawnCost = 15;
-        private const int HealCost = 12;
+        private const int SpawnCost = 20;
+        private const int HealCost = 16;
 
-        private readonly int[] _upgradeCostByLevel = { 0, 20, 40, 70 };
+        private readonly int[] _upgradeCostByLevel = { 0, 30, 70, 130 };
 
         private readonly float[] _mushroomMaxHp = { 30f, 50f, 80f, 120f };
         private readonly float[] _mushroomDamage = { 3f, 6f, 10f, 15f };
         private readonly float[] _mushroomAttackInterval = { 1.3f, 1.1f, 0.9f, 0.7f };
         private readonly float[] _mushroomAttackRangeByScreenHeight = { 0.2f, 0.3333f, 0.4667f, 0.6f };
-        private readonly int[] _mushroomCurrencyAmount = { 3, 5, 8, 12 };
-        private readonly float[] _mushroomCurrencyInterval = { 5.5f, 5f, 4.6f, 4.2f };
+        private readonly int[] _mushroomCurrencyAmount = { 3, 3, 5, 8 };
+        private readonly float[] _mushroomCurrencyInterval = { 6.5f, 6f, 5.6f, 5.2f };
         private readonly float[] _mushroomBarsPivotYOffset = { 0.8f, 1.05f, 1.3f, 1.55f };
         private readonly float[] _mushroomLaserStartYOffset = { 0.5f, 0.75f, 1.0f, 1.22f };
         private readonly float[] _mushroomIdleMinDelay = { 1.9f, 2.8f, 2.85f, 2.45f };
@@ -142,9 +142,9 @@ namespace MushroomDefense
         };
         private readonly int[,] _enemyRewardByTypeAndLevel =
         {
-            { 6, 12, 20 },   // Mosquito
-            { 8, 15, 24 },   // Tick
-            { 10, 19, 30 }   // Hare
+            { 4, 8, 13 },    // Mosquito
+            { 5, 10, 16 },   // Tick
+            { 6, 12, 20 }    // Hare
         };
 
         private readonly List<MushroomData> _mushrooms = new List<MushroomData>();
@@ -869,8 +869,12 @@ namespace MushroomDefense
             _currentWave = waveIndex;
             _waveInProgress = true;
 
-            var enemyCount = waveIndex == 1 ? 3 : 3 + waveIndex * 2 + Mathf.Max(0, waveIndex - 3);
-            var maxLevel = Mathf.Clamp(1 + (waveIndex - 1) / 3, 1, 3);
+            var enemyCount = waveIndex == 1
+                ? 3
+                : waveIndex == 2
+                    ? 6
+                    : 3 + waveIndex * 2 + Mathf.Max(0, waveIndex - 5) * 2;
+            var maxLevel = Mathf.Clamp(1 + (waveIndex - 1) / 2, 1, 3);
 
             for (var i = 0; i < enemyCount; i++)
             {
@@ -913,7 +917,7 @@ namespace MushroomDefense
             enemyObject.transform.localScale = Vector3.one * EnemyScale;
 
             var healthBarRoot = new GameObject("EnemyHP");
-            var hpBar = CreateBar(healthBarRoot.transform, Color.red, 0.18f, 0.08f, 6);
+            var hpBar = CreateMushroomBar(healthBarRoot.transform, Color.red, 0.18f, 0.08f, 6);
             healthBarRoot.transform.position = (Vector2)position + new Vector2(0f, 0.8f);
 
             var enemy = new EnemyData
@@ -2035,7 +2039,9 @@ namespace MushroomDefense
         private void UpdateEnemyBar(EnemyData enemy)
         {
             var hpRatio = Mathf.Clamp01(enemy.Health / GetEnemyMaxHp(enemy));
-            enemy.HealthBar.transform.localScale = new Vector3(Mathf.Max(0.02f, hpRatio), enemy.HealthBar.transform.localScale.y, 1f);
+            var fillWidth = Mathf.Max(MushroomBarWidth * 0.02f, hpRatio * MushroomBarWidth);
+            enemy.HealthBar.transform.localScale = new Vector3(fillWidth, enemy.HealthBar.transform.localScale.y, 1f);
+            enemy.HealthBar.transform.localPosition = new Vector3(-(MushroomBarWidth - fillWidth) * 0.5f, enemy.HealthBar.transform.localPosition.y, 0f);
         }
 
         private float GetMushroomMaxHp(int level) => _mushroomMaxHp[level - 1];
