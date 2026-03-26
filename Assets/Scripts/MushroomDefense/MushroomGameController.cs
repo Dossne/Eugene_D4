@@ -35,6 +35,7 @@ namespace MushroomDefense
         private const float MushroomVisualYInCell = 0.3f;
         private const int MushroomSortBaseOrder = 3;
         private const float MushroomSortWorldUnitsPerOrder = 1.8f;
+        private const int EnemySortBaseOrder = 100;
         private const float ActionButtonWorldOffsetXInCell = 0.3f;
         private const float ActionButtonWorldOffsetYInCell = 0.35f;
         private const float ActionButtonVerticalGap = -6f;
@@ -102,11 +103,11 @@ namespace MushroomDefense
         private readonly int[] _upgradeCostByLevel = { 0, 30, 70, 130 };
 
         private readonly float[] _mushroomMaxHp = { 30f, 50f, 80f, 120f };
-        private readonly float[] _mushroomDamage = { 3f, 6f, 10f, 15f };
+        private readonly float[] _mushroomDamage = { 4f, 6f, 9f, 14f };
         private readonly float[] _mushroomAttackInterval = { 1.3f, 1.1f, 0.9f, 0.7f };
         private readonly float[] _mushroomAttackRangeByScreenHeight = { 0.2f, 0.3333f, 0.4667f, 0.6f };
-        private readonly int[] _mushroomCurrencyAmount = { 3, 3, 5, 8 };
-        private readonly float[] _mushroomCurrencyInterval = { 6.5f, 6f, 5.6f, 5.2f };
+        private readonly int[] _mushroomCurrencyAmount = { 4, 5, 6, 9 };
+        private readonly float[] _mushroomCurrencyInterval = { 4.5f, 5f, 4.6f, 4.2f };
         private readonly float[] _mushroomBarsPivotYOffset = { 0.8f, 1.05f, 1.3f, 1.55f };
         private readonly float[] _mushroomLaserStartYOffset = { 0.5f, 0.75f, 1.0f, 1.22f };
         private readonly float[] _mushroomIdleMinDelay = { 1.9f, 2.8f, 2.85f, 2.45f };
@@ -727,9 +728,6 @@ namespace MushroomDefense
         {
             foreach (var enemy in _enemies.ToArray())
             {
-                if (enemy.Target == null || enemy.Target.Health <= 0f) enemy.Target = FindRandomMushroom();
-                if (enemy.Target == null) continue;
-
                 enemy.AttackCooldown -= deltaTime;
 
                 if (enemy.IsAttackLeapActive)
@@ -738,6 +736,9 @@ namespace MushroomDefense
                     UpdateEnemyBar(enemy);
                     continue;
                 }
+
+                enemy.Target = FindClosestMushroom(enemy.WorldPosition);
+                if (enemy.Target == null) continue;
 
                 var toTarget = enemy.Target.WorldPosition - enemy.WorldPosition;
                 UpdateEnemyFacing(enemy, toTarget);
@@ -909,7 +910,7 @@ namespace MushroomDefense
             var enemyObject = new GameObject($"Enemy_{enemyType}_L{level}");
             var renderer = enemyObject.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
-            renderer.sortingOrder = 4;
+            renderer.sortingOrder = EnemySortBaseOrder;
             renderer.color = sprite == _fallbackSprite ? new Color(0.85f, 0.25f, 0.25f) : Color.white;
 
             var position = GetEnemySpawnPosition();
@@ -917,7 +918,7 @@ namespace MushroomDefense
             enemyObject.transform.localScale = Vector3.one * EnemyScale;
 
             var healthBarRoot = new GameObject("EnemyHP");
-            var hpBar = CreateMushroomBar(healthBarRoot.transform, Color.red, 0.18f, 0.08f, 6);
+            var hpBar = CreateMushroomBar(healthBarRoot.transform, Color.red, 0.18f, 0.08f, EnemySortBaseOrder + 2);
             healthBarRoot.transform.position = (Vector2)position + new Vector2(0f, 0.8f);
 
             var enemy = new EnemyData
@@ -934,7 +935,7 @@ namespace MushroomDefense
             };
 
             _enemies.Add(enemy);
-            enemy.Target = FindRandomMushroom();
+            enemy.Target = FindClosestMushroom(enemy.WorldPosition);
             UpdateEnemyBar(enemy);
         }
 
@@ -955,6 +956,7 @@ namespace MushroomDefense
         }
         private void SpawnMushroomOnSelectedCell()
         {
+            if (_waveInProgress) return;
             if (_selectedCell == null) return;
             if (!TrySpendCurrency(SpawnCost)) return;
             var selectedCellCenter = GetCellCenter(_selectedCell);
@@ -1033,7 +1035,8 @@ namespace MushroomDefense
         {
             if (_selectedMushroom == null || _waveInProgress) return;
             if (_selectedMushroom.Health >= GetMushroomMaxHp(_selectedMushroom.Level) - 0.01f) return;
-            if (!TrySpendCurrency(HealCost)) return;
+            var healCost = GetMushroomHealCost(_selectedMushroom);
+            if (!TrySpendCurrency(healCost)) return;
 
             _selectedMushroom.Health = GetMushroomMaxHp(_selectedMushroom.Level);
             UpdateMushroomBars(_selectedMushroom);
@@ -1652,10 +1655,25 @@ namespace MushroomDefense
             return viewport.z >= 0f && viewport.x >= 0f && viewport.x <= 1f && viewport.y >= 0f && viewport.y <= 1f;
         }
 
-        private MushroomData FindRandomMushroom()
+        private MushroomData FindClosestMushroom(Vector2 origin)
         {
             if (_mushrooms.Count == 0) return null;
-            return _mushrooms[Random.Range(0, _mushrooms.Count)];
+
+            MushroomData closest = null;
+            var bestDistance = float.MaxValue;
+            for (var i = 0; i < _mushrooms.Count; i++)
+            {
+                var mushroom = _mushrooms[i];
+                if (mushroom == null || mushroom.Health <= 0f) continue;
+
+                var distance = Vector2.Distance(origin, mushroom.WorldPosition);
+                if (distance >= bestDistance) continue;
+
+                bestDistance = distance;
+                closest = mushroom;
+            }
+
+            return closest;
         }
 
         private void SelectCell(CellData cell)
@@ -1706,9 +1724,15 @@ namespace MushroomDefense
                     : _upgradeCostByLevel[1];
                 _upgradeCostText.text = upgradePrice.ToString();
             }
-            if (_healCostText != null) _healCostText.text = HealCost.ToString();
+            if (_healCostText != null)
+            {
+                var healPrice = _selectedMushroom != null
+                    ? GetMushroomHealCost(_selectedMushroom)
+                    : HealCost;
+                _healCostText.text = healPrice.ToString();
+            }
 
-            _spawnButton.gameObject.SetActive(_selectionType == SelectionType.EmptyCell);
+            _spawnButton.gameObject.SetActive(_selectionType == SelectionType.EmptyCell && !_waveInProgress);
             _upgradeButton.gameObject.SetActive(_selectionType == SelectionType.Mushroom && !_waveInProgress && _selectedMushroom != null && _selectedMushroom.Level < 4);
             _healButton.gameObject.SetActive(_selectionType == SelectionType.Mushroom && !_waveInProgress && _selectedMushroom != null && _selectedMushroom.Health < GetMushroomMaxHp(_selectedMushroom.Level));
             UpdateActionButtonsPosition();
@@ -2045,6 +2069,19 @@ namespace MushroomDefense
         }
 
         private float GetMushroomMaxHp(int level) => _mushroomMaxHp[level - 1];
+        private int GetMushroomHealCost(MushroomData mushroom)
+        {
+            if (mushroom == null) return HealCost;
+
+            var maxHp = GetMushroomMaxHp(mushroom.Level);
+            if (maxHp <= 0.01f) return HealCost;
+
+            var missingRatio = Mathf.Clamp01((maxHp - mushroom.Health) / maxHp);
+            if (missingRatio <= 0.001f) return 0;
+
+            return Mathf.Max(1, Mathf.CeilToInt(HealCost * missingRatio));
+        }
+
         private float GetMushroomDamage(int level) => _mushroomDamage[level - 1];
         private float GetMushroomAttackInterval(int level) => _mushroomAttackInterval[level - 1];
         private float GetMushroomAttackRange(int level)
