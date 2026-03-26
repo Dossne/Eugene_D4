@@ -24,6 +24,8 @@ namespace MushroomDefense
         private const float EnemyAttackLeapOutDuration = 0.14f;
         private const float EnemyAttackLeapBackDuration = 0.16f;
         private const float EnemyAttackLeapArcHeight = 0.24f;
+        private const float EnemyMoveHopAmplitude = 0.12f;
+        private const float EnemyMoveHopFrequency = 7.5f;
         private const float TileGapInTileWidths = 0.1f;
         // 0 = bottom edge of tile, 1 = top edge of tile
         private const float MushroomVisualYInCell = 0.3f;
@@ -710,12 +712,19 @@ namespace MushroomDefense
                 {
                     var direction = toTarget.normalized;
                     enemy.WorldPosition += direction * GetEnemyMoveSpeed(enemy.Level) * deltaTime;
-                    enemy.Renderer.transform.position = new Vector3(enemy.WorldPosition.x, enemy.WorldPosition.y, 0f);
-                    enemy.HealthBarRoot.transform.position = enemy.WorldPosition + new Vector2(0f, 0.8f);
+                    var hop = Mathf.Abs(Mathf.Sin(Time.time * EnemyMoveHopFrequency + enemy.MoveHopPhase)) * EnemyMoveHopAmplitude;
+                    var visualPos = enemy.WorldPosition + Vector2.up * hop;
+                    enemy.Renderer.transform.position = new Vector3(visualPos.x, visualPos.y, 0f);
+                    enemy.HealthBarRoot.transform.position = visualPos + new Vector2(0f, 0.8f);
                 }
                 else if (enemy.AttackCooldown <= 0f)
                 {
                     StartEnemyAttackLeap(enemy);
+                }
+                else
+                {
+                    enemy.Renderer.transform.position = new Vector3(enemy.WorldPosition.x, enemy.WorldPosition.y, 0f);
+                    enemy.HealthBarRoot.transform.position = enemy.WorldPosition + new Vector2(0f, 0.8f);
                 }
 
                 UpdateEnemyBar(enemy);
@@ -866,7 +875,8 @@ namespace MushroomDefense
                 WorldPosition = position,
                 Renderer = renderer,
                 HealthBarRoot = healthBarRoot,
-                HealthBar = hpBar
+                HealthBar = hpBar,
+                MoveHopPhase = Random.Range(0f, Mathf.PI * 2f)
             };
 
             _enemies.Add(enemy);
@@ -2028,6 +2038,7 @@ namespace MushroomDefense
             public Vector2 AttackLeapStart;
             public Vector2 AttackLeapPivot;
             public bool AttackLeapDamageApplied;
+            public float MoveHopPhase;
         }
 
         private sealed class CurrencyPopupData
