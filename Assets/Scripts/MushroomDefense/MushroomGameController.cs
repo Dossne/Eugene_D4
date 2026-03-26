@@ -32,6 +32,12 @@ namespace MushroomDefense
         private const float LeftSideWidthRatio = 0.45f;
         // 0 = bottom edge of button, 1 = top edge of button
         private const float LeftIconVerticalNormalized = 0.55f;
+        private const float MushroomBarWidth = 0.8f;
+        private const float MushroomCurrencyBarHeight = 0.10f;
+        private const float MushroomHealthBarHeight = 0.16f;
+        private const float MushroomBarOutlineWidthPadding = 0.06f;
+        private const float MushroomBarOutlineHeightPadding = 0.04f;
+        private const float MushroomBarsDividerHeight = 0.025f;
 
         private const int SpawnCost = 15;
         private const int HealCost = 12;
@@ -44,6 +50,7 @@ namespace MushroomDefense
         private readonly float[] _mushroomAttackRange = { 2.2f, 2.6f, 3.0f, 3.4f };
         private readonly int[] _mushroomCurrencyAmount = { 4, 7, 11, 16 };
         private readonly float[] _mushroomCurrencyInterval = { 4.5f, 4f, 3.5f, 3f };
+        private readonly float[] _mushroomBarsPivotYOffset = { 0.8f, 1.05f, 1.3f, 1.55f };
 
         private readonly float[] _enemyMaxHp = { 20f, 40f, 70f };
         private readonly float[] _enemyDamage = { 4f, 7f, 11f };
@@ -561,9 +568,10 @@ namespace MushroomDefense
             collider.size = Vector2.one * 0.8f;
 
             var barsRoot = new GameObject("MushroomBars");
-            barsRoot.transform.position = selectedCellCenter + new Vector2(0f, -0.85f);
-            var currencyBar = CreateBar(barsRoot.transform, new Color(1f, 0.55f, 0.15f), 0.09f, 0.07f, 5);
-            var hpBar = CreateBar(barsRoot.transform, Color.red, -0.09f, 0.07f, 5);
+            barsRoot.transform.position = mushroomObject.transform.position + Vector3.up * GetMushroomBarsPivotYOffset(1);
+            var currencyBar = CreateMushroomBar(barsRoot.transform, new Color(1f, 0.55f, 0.15f), MushroomCurrencyBarHeight * 0.5f, MushroomCurrencyBarHeight, 5);
+            var hpBar = CreateMushroomBar(barsRoot.transform, Color.red, -MushroomHealthBarHeight * 0.5f, MushroomHealthBarHeight, 5);
+            CreateMushroomBarsDivider(barsRoot.transform, 5);
 
             var mushroom = new MushroomData
             {
@@ -599,7 +607,7 @@ namespace MushroomDefense
             _selectedMushroom.Renderer.sprite = _mushroomSprites[_selectedMushroom.Level - 1];
             var mushroomVisualPos = GetMushroomVisualPosition(_selectedMushroom.Cell);
             _selectedMushroom.Renderer.transform.position = new Vector3(mushroomVisualPos.x, mushroomVisualPos.y, 0f);
-            _selectedMushroom.Health = Mathf.Min(_selectedMushroom.Health + 10f, GetMushroomMaxHp(_selectedMushroom.Level));
+            _selectedMushroom.Health = GetMushroomMaxHp(_selectedMushroom.Level);
             _selectedMushroom.Renderer.gameObject.name = $"Mushroom_L{_selectedMushroom.Level}";
             UpdateMushroomBars(_selectedMushroom);
         }
@@ -965,14 +973,66 @@ namespace MushroomDefense
             return renderer;
         }
 
+        private SpriteRenderer CreateMushroomBar(Transform parent, Color fillColor, float localY, float height, int sortingOrder)
+        {
+            var barRoot = new GameObject("MushroomBar");
+            barRoot.transform.SetParent(parent, false);
+            barRoot.transform.localPosition = new Vector3(0f, localY, 0f);
+
+            var outline = new GameObject("Outline");
+            outline.transform.SetParent(barRoot.transform, false);
+            outline.transform.localPosition = Vector3.zero;
+            outline.transform.localScale = new Vector3(MushroomBarWidth + MushroomBarOutlineWidthPadding, height + MushroomBarOutlineHeightPadding, 1f);
+            var outlineRenderer = outline.AddComponent<SpriteRenderer>();
+            outlineRenderer.sprite = _fallbackSprite;
+            outlineRenderer.color = Color.black;
+            outlineRenderer.sortingOrder = sortingOrder - 2;
+
+            var background = new GameObject("Background");
+            background.transform.SetParent(barRoot.transform, false);
+            background.transform.localPosition = Vector3.zero;
+            background.transform.localScale = new Vector3(MushroomBarWidth, height, 1f);
+            var backgroundRenderer = background.AddComponent<SpriteRenderer>();
+            backgroundRenderer.sprite = _fallbackSprite;
+            backgroundRenderer.color = new Color(0.52f, 0.6f, 0.67f, 0.88f);
+            backgroundRenderer.sortingOrder = sortingOrder - 1;
+
+            var fill = new GameObject("Fill");
+            fill.transform.SetParent(barRoot.transform, false);
+            fill.transform.localPosition = Vector3.zero;
+            fill.transform.localScale = new Vector3(MushroomBarWidth, height, 1f);
+            var fillRenderer = fill.AddComponent<SpriteRenderer>();
+            fillRenderer.sprite = _fallbackSprite;
+            fillRenderer.color = fillColor;
+            fillRenderer.sortingOrder = sortingOrder;
+            return fillRenderer;
+        }
+
+        private void CreateMushroomBarsDivider(Transform parent, int sortingOrder)
+        {
+            var divider = new GameObject("Divider");
+            divider.transform.SetParent(parent, false);
+            divider.transform.localPosition = Vector3.zero;
+            divider.transform.localScale = new Vector3(MushroomBarWidth + MushroomBarOutlineWidthPadding, MushroomBarsDividerHeight, 1f);
+
+            var dividerRenderer = divider.AddComponent<SpriteRenderer>();
+            dividerRenderer.sprite = _fallbackSprite;
+            dividerRenderer.color = Color.black;
+            dividerRenderer.sortingOrder = sortingOrder + 1;
+        }
+
         private void UpdateMushroomBars(MushroomData mushroom)
         {
             mushroom.WorldPosition = GetCellCenter(mushroom.Cell);
-            mushroom.BarsRoot.transform.position = mushroom.WorldPosition + new Vector2(0f, -0.85f);
+            mushroom.BarsRoot.transform.position = mushroom.Renderer.transform.position + Vector3.up * GetMushroomBarsPivotYOffset(mushroom.Level);
             var hpRatio = Mathf.Clamp01(mushroom.Health / GetMushroomMaxHp(mushroom.Level));
             var currencyRatio = Mathf.Clamp01(mushroom.CurrencyTimer / GetMushroomCurrencyInterval(mushroom.Level));
-            mushroom.HealthBar.transform.localScale = new Vector3(Mathf.Max(0.02f, hpRatio), mushroom.HealthBar.transform.localScale.y, 1f);
-            mushroom.CurrencyBar.transform.localScale = new Vector3(Mathf.Max(0.02f, currencyRatio), mushroom.CurrencyBar.transform.localScale.y, 1f);
+            var minFillWidth = MushroomBarWidth * 0.02f;
+            var healthFillWidth = Mathf.Max(minFillWidth, hpRatio * MushroomBarWidth);
+            var currencyFillWidth = Mathf.Max(minFillWidth, currencyRatio * MushroomBarWidth);
+            mushroom.HealthBar.transform.localScale = new Vector3(healthFillWidth, mushroom.HealthBar.transform.localScale.y, 1f);
+            mushroom.CurrencyBar.transform.localScale = new Vector3(currencyFillWidth, mushroom.CurrencyBar.transform.localScale.y, 1f);
+            mushroom.CurrencyBar.transform.localPosition = new Vector3(-(MushroomBarWidth - currencyFillWidth) * 0.5f, 0f, 0f);
         }
 
         private void UpdateEnemyBar(EnemyData enemy)
@@ -987,6 +1047,7 @@ namespace MushroomDefense
         private float GetMushroomAttackRange(int level) => _mushroomAttackRange[level - 1];
         private int GetMushroomCurrencyAmount(int level) => _mushroomCurrencyAmount[level - 1];
         private float GetMushroomCurrencyInterval(int level) => _mushroomCurrencyInterval[level - 1];
+        private float GetMushroomBarsPivotYOffset(int level) => _mushroomBarsPivotYOffset[level - 1];
 
         private float GetEnemyMaxHp(int level) => _enemyMaxHp[level - 1];
         private float GetEnemyDamage(int level) => _enemyDamage[level - 1];
