@@ -80,6 +80,7 @@ namespace MushroomDefense
         private const int CheatCurrencyBonus = 1000;
         private const KeyCode CheatCurrencyKey = KeyCode.F8;
         private const KeyCode CheatNextWaveKey = KeyCode.W;
+        private const KeyCode CheatLaserKey = KeyCode.L;
 
         private const int SpawnCost = 15;
         private const int HealCost = 12;
@@ -93,6 +94,7 @@ namespace MushroomDefense
         private readonly int[] _mushroomCurrencyAmount = { 4, 7, 11, 16 };
         private readonly float[] _mushroomCurrencyInterval = { 4.5f, 4f, 3.5f, 3f };
         private readonly float[] _mushroomBarsPivotYOffset = { 0.8f, 1.05f, 1.3f, 1.55f };
+        private readonly float[] _mushroomLaserStartYOffset = { 0.5f, 0.75f, 1.0f, 1.22f };
         private readonly float[] _mushroomIdleMinDelay = { 1.9f, 2.8f, 2.85f, 2.45f };
         private readonly float[] _mushroomIdleMaxDelay = { 3.0f, 4.0f, 3.35f, 2.9f };
         private readonly float[] _mushroomIdleIntensity = { 1f, 0.72f, 0.45f, 0.32f };
@@ -564,6 +566,11 @@ namespace MushroomDefense
             {
                 _timeToNextWave = 0f;
             }
+
+            if (Input.GetKeyDown(CheatLaserKey))
+            {
+                FireLaserCheatToTopRight();
+            }
         }
 
         private void TickMushrooms(float deltaTime)
@@ -641,7 +648,9 @@ namespace MushroomDefense
                 }
 
                 targetInRange.Health -= GetMushroomDamage(mushroom.Level);
-                SpawnMushroomLaser(mushroom.Renderer.transform.position, targetInRange.Renderer.transform.position);
+                var laserStart = mushroom.Renderer.transform.position + Vector3.up * GetMushroomLaserStartYOffset(mushroom.Level);
+                var laserTarget = targetInRange.Renderer.transform.position + Vector3.up * 0.2f;
+                SpawnMushroomLaser(laserStart, laserTarget);
                 mushroom.AttackCooldown = GetMushroomAttackInterval(mushroom.Level);
                 ResetMushroomCombatVisual(mushroom);
                 if (targetInRange.Health <= 0f) KillEnemy(targetInRange);
@@ -1215,6 +1224,21 @@ namespace MushroomDefense
             }
         }
 
+        private void FireLaserCheatToTopRight()
+        {
+            if (_mainCamera == null || _mushrooms.Count == 0) return;
+
+            var topRightWorld = _mainCamera.ViewportToWorldPoint(new Vector3(1f, 1f, Mathf.Abs(_mainCamera.transform.position.z)));
+            topRightWorld.z = 0f;
+
+            foreach (var mushroom in _mushrooms)
+            {
+                if (mushroom?.Renderer == null) continue;
+                var start = mushroom.Renderer.transform.position + Vector3.up * GetMushroomLaserStartYOffset(mushroom.Level);
+                SpawnMushroomLaser(start, topRightWorld);
+            }
+        }
+
         private void SpawnMushroomLaser(Vector3 fromWorld, Vector3 toWorld)
         {
             if (_mushroomLaserMaterial == null) return;
@@ -1223,8 +1247,8 @@ namespace MushroomDefense
             var line = laserObject.AddComponent<LineRenderer>();
             line.positionCount = 2;
             line.useWorldSpace = true;
-            var start = fromWorld + Vector3.up * 0.2f;
-            var end = toWorld + Vector3.up * 0.2f;
+            var start = fromWorld;
+            var end = toWorld;
             line.SetPosition(0, start);
             line.SetPosition(1, start);
             line.startWidth = MushroomLaserWidth;
@@ -1707,6 +1731,7 @@ namespace MushroomDefense
         private int GetMushroomCurrencyAmount(int level) => _mushroomCurrencyAmount[level - 1];
         private float GetMushroomCurrencyInterval(int level) => _mushroomCurrencyInterval[level - 1];
         private float GetMushroomBarsPivotYOffset(int level) => _mushroomBarsPivotYOffset[level - 1];
+        private float GetMushroomLaserStartYOffset(int level) => _mushroomLaserStartYOffset[level - 1];
 
         private float GetEnemyMaxHp(int level) => _enemyMaxHp[level - 1];
         private float GetEnemyDamage(int level) => _enemyDamage[level - 1];
