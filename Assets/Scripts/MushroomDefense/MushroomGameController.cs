@@ -40,8 +40,11 @@ namespace MushroomDefense
         private const float MushroomBarsDividerHeight = 0.025f;
         private const float HudPanelMarginX = 20f;
         private const float HudPanelMarginY = -20f;
-        private const float CurrencyPanelWidth = 280f;
+        private const float CurrencyPanelWidth = 170;
         private const float CurrencyPanelHeight = 90f;
+        private const float CurrencyPanelContentScale = 1f;
+        private const float CurrencyIconTextSpacing = 14f;
+        private const float CurrencyIconSizeFactor = 0.62f;
         private const float WavePanelWidth = 270f;
         private const float WavePanelHeight = 90f;
         private const float WavePanelTextScale = 0.9f;
@@ -349,9 +352,7 @@ namespace MushroomDefense
             var beigePanelColor = new Color(0.88f, 0.82f, 0.72f, 0.95f);
 
             var currencyPanel = CreateHudPanel("CurrencyPanel", new Vector2(1f, 1f), new Vector2(-HudPanelMarginX, HudPanelMarginY), new Vector2(1f, 1f), new Vector2(CurrencyPanelWidth, CurrencyPanelHeight), beigePanelColor);
-            _currencyText = CreateText("Currency", new Vector2(0.5f, 0.5f), Vector2.zero, TextAnchor.MiddleCenter, 32, currencyPanel.transform);
-            _currencyText.rectTransform.sizeDelta = new Vector2(CurrencyPanelWidth - 28f, CurrencyPanelHeight - 20f);
-            _currencyText.color = new Color(0.17f, 0.14f, 0.09f, 1f);
+            BuildCurrencyPanelContent(currencyPanel);
 
             var wavePanel = CreateHudPanel("WavePanel", new Vector2(0f, 1f), new Vector2(HudPanelMarginX, HudPanelMarginY), new Vector2(0f, 1f), new Vector2(WavePanelWidth, WavePanelHeight), beigePanelColor);
             var waveTextRoot = new GameObject("WaveTextRoot");
@@ -415,6 +416,46 @@ namespace MushroomDefense
             image.type = Image.Type.Sliced;
             image.color = color;
             return panel;
+        }
+
+        private void BuildCurrencyPanelContent(GameObject currencyPanel)
+        {
+            var contentRoot = new GameObject("CurrencyContentRoot");
+            contentRoot.transform.SetParent(currencyPanel.transform, false);
+
+            var rootRect = contentRoot.AddComponent<RectTransform>();
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.pivot = new Vector2(0.5f, 0.5f);
+            rootRect.offsetMin = Vector2.zero;
+            rootRect.offsetMax = Vector2.zero;
+            rootRect.localScale = Vector3.one * CurrencyPanelContentScale;
+
+            var icon = new GameObject("CurrencyIcon");
+            icon.transform.SetParent(contentRoot.transform, false);
+            var iconRect = icon.AddComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+            iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+            iconRect.pivot = new Vector2(1f, 0.5f);
+            var iconSize = CurrencyPanelHeight * CurrencyIconSizeFactor;
+            iconRect.sizeDelta = new Vector2(iconSize, iconSize);
+            iconRect.anchoredPosition = new Vector2(-CurrencyIconTextSpacing * 0.5f, 0f);
+            var iconImage = icon.AddComponent<Image>();
+            iconImage.sprite = _coinSprite ?? _fallbackSprite;
+            iconImage.preserveAspect = true;
+            iconImage.color = Color.white;
+
+            _currencyText = CreateText("CurrencyAmount", new Vector2(0.5f, 0.5f), Vector2.zero, TextAnchor.MiddleLeft, 36, contentRoot.transform);
+            var amountRect = _currencyText.rectTransform;
+            amountRect.anchorMin = new Vector2(0.5f, 0.5f);
+            amountRect.anchorMax = new Vector2(0.5f, 0.5f);
+            amountRect.pivot = new Vector2(0f, 0.5f);
+            amountRect.anchoredPosition = new Vector2(CurrencyIconTextSpacing * 0.5f, 0f);
+            amountRect.sizeDelta = new Vector2(CurrencyPanelWidth * 0.6f, CurrencyPanelHeight * 0.85f);
+            _currencyText.resizeTextForBestFit = true;
+            _currencyText.resizeTextMinSize = 14;
+            _currencyText.resizeTextMaxSize = 56;
+            _currencyText.color = new Color(0.17f, 0.14f, 0.09f, 1f);
         }
 
         private static void ConfigureWavePanelTextRect(Text text, bool topRow)
@@ -825,7 +866,7 @@ namespace MushroomDefense
 
         private void RefreshUi()
         {
-            _currencyText.text = $"Coins: {_currency}";
+            _currencyText.text = _currency.ToString();
             _waveText.text = $"Waves Left: {Mathf.Max(0, MaxWaves - _currentWave)}";
             _nextWaveText.text = _waveInProgress ? "Next Wave: In Progress" : $"Next Wave: {Mathf.CeilToInt(Mathf.Max(0f, _timeToNextWave))}s";
 
