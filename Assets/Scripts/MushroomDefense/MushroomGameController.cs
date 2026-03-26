@@ -571,7 +571,7 @@ namespace MushroomDefense
             barsRoot.transform.position = mushroomObject.transform.position + Vector3.up * GetMushroomBarsPivotYOffset(1);
             var currencyBar = CreateMushroomBar(barsRoot.transform, new Color(1f, 0.55f, 0.15f), MushroomCurrencyBarHeight * 0.5f, MushroomCurrencyBarHeight, 5);
             var hpBar = CreateMushroomBar(barsRoot.transform, Color.red, -MushroomHealthBarHeight * 0.5f, MushroomHealthBarHeight, 5);
-            CreateMushroomBarsDivider(barsRoot.transform, 5);
+            var barsDivider = CreateMushroomBarsDivider(barsRoot.transform, 5);
 
             var mushroom = new MushroomData
             {
@@ -583,7 +583,8 @@ namespace MushroomDefense
                 Cell = _selectedCell,
                 BarsRoot = barsRoot,
                 CurrencyBar = currencyBar,
-                HealthBar = hpBar
+                HealthBar = hpBar,
+                CurrencyDivider = barsDivider
             };
 
             _selectedCell.Occupant = mushroom;
@@ -1008,7 +1009,7 @@ namespace MushroomDefense
             return fillRenderer;
         }
 
-        private void CreateMushroomBarsDivider(Transform parent, int sortingOrder)
+        private SpriteRenderer CreateMushroomBarsDivider(Transform parent, int sortingOrder)
         {
             var divider = new GameObject("Divider");
             divider.transform.SetParent(parent, false);
@@ -1019,6 +1020,7 @@ namespace MushroomDefense
             dividerRenderer.sprite = _fallbackSprite;
             dividerRenderer.color = Color.black;
             dividerRenderer.sortingOrder = sortingOrder + 1;
+            return dividerRenderer;
         }
 
         private void UpdateMushroomBars(MushroomData mushroom)
@@ -1033,6 +1035,14 @@ namespace MushroomDefense
             mushroom.HealthBar.transform.localScale = new Vector3(healthFillWidth, mushroom.HealthBar.transform.localScale.y, 1f);
             mushroom.CurrencyBar.transform.localScale = new Vector3(currencyFillWidth, mushroom.CurrencyBar.transform.localScale.y, 1f);
             mushroom.CurrencyBar.transform.localPosition = new Vector3(-(MushroomBarWidth - currencyFillWidth) * 0.5f, 0f, 0f);
+
+            var showBars = _selectedMushroom == mushroom;
+            mushroom.CurrencyBar.transform.parent.gameObject.SetActive(showBars);
+            mushroom.HealthBar.transform.parent.gameObject.SetActive(showBars);
+            if (mushroom.CurrencyDivider != null)
+            {
+                mushroom.CurrencyDivider.gameObject.SetActive(showBars);
+            }
         }
 
         private void UpdateEnemyBar(EnemyData enemy)
@@ -1093,6 +1103,7 @@ namespace MushroomDefense
             public GameObject BarsRoot;
             public SpriteRenderer CurrencyBar;
             public SpriteRenderer HealthBar;
+            public SpriteRenderer CurrencyDivider;
         }
 
         private sealed class EnemyData
