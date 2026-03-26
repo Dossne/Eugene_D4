@@ -2375,7 +2375,7 @@ namespace MushroomDefense
         private float GetMushroomBarsPivotYOffset(int level) => _mushroomBarsPivotYOffset[level - 1];
         private float GetMushroomLaserStartYOffset(int level) => _mushroomLaserStartYOffset[level - 1];
 
-        private float GetEnemyMaxHp(EnemyData enemy) => GetEnemyMaxHp(enemy.Type, enemy.Level) * GetEnemyWaveHpMultiplier(enemy.WaveIndex);
+        private float GetEnemyMaxHp(EnemyData enemy) => GetEnemyMaxHp(enemy.Type, enemy.Level);
         private float GetEnemyDamage(EnemyData enemy) => GetEnemyDamage(enemy.Type, enemy.Level) * GetEnemyWaveDamageMultiplier(enemy.WaveIndex);
         private float GetEnemyAttackInterval(EnemyData enemy) => GetEnemyAttackInterval(enemy.Type, enemy.Level);
         private float GetEnemyMoveSpeed(EnemyData enemy) => GetEnemyMoveSpeed(enemy.Type, enemy.Level);
