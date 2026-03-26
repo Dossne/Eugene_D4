@@ -49,6 +49,10 @@ namespace MushroomDefense
         private const float MushroomCombatShakeFrequency = 14f;
         private const float MushroomCombatShakeStrength = 0.03f;
         private static readonly Color MushroomCombatMaxColor = new Color(1f, 0.22f, 0.22f, 1f);
+        private const float MushroomLaserLifetime = 0.28f;
+        private const float MushroomLaserTravelDuration = 0.14f;
+        private const float MushroomLaserWidth = 0.09f;
+        private static readonly Color MushroomLaserColor = new Color(1f, 0.2f, 0.2f, 1f);
         private const float MushroomIdleDuration = 0.62f;
         private const float MushroomIdleSafetyBeforeCurrency = 0.08f;
         private const float MushroomIdleDelayAfterCurrency = 0.3f;
@@ -102,6 +106,7 @@ namespace MushroomDefense
         private readonly List<MushroomData> _mushrooms = new List<MushroomData>();
         private readonly List<EnemyData> _enemies = new List<EnemyData>();
         private readonly List<CurrencyPopupData> _currencyPopups = new List<CurrencyPopupData>();
+        private readonly List<MushroomLaserData> _mushroomLasers = new List<MushroomLaserData>();
 
         private readonly Dictionary<Collider2D, CellData> _cellByCollider = new Dictionary<Collider2D, CellData>();
         private readonly Dictionary<Collider2D, MushroomData> _mushroomByCollider = new Dictionary<Collider2D, MushroomData>();
@@ -117,6 +122,7 @@ namespace MushroomDefense
         private Sprite _heartSprite;
         private Sprite _uiBackgroundSprite;
         private Sprite _spawnButtonIconSprite;
+        private Material _mushroomLaserMaterial;
         private Sprite[] _mushroomSprites;
         private Sprite[] _tickSprites;
         private Sprite[] _mosquitoSprites;
@@ -187,6 +193,7 @@ namespace MushroomDefense
             TickEnemies(Time.deltaTime);
             TickWave(Time.deltaTime);
             TickCurrencyPopups(Time.deltaTime);
+            TickMushroomLasers(Time.deltaTime);
 
             if (_waveInProgress && _mushrooms.Count == 0)
             {
@@ -247,6 +254,13 @@ namespace MushroomDefense
                 LoadEditorSprite("Assets/Art/Hares/hare_2.png") ?? _fallbackSprite,
                 LoadEditorSprite("Assets/Art/Hares/hare_3.png") ?? _fallbackSprite
             };
+
+            var laserShader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Color");
+            if (laserShader != null)
+            {
+                _mushroomLaserMaterial = new Material(laserShader);
+                _mushroomLaserMaterial.color = Color.white;
+            }
         }
 
         private void BuildWorld()
@@ -627,6 +641,7 @@ namespace MushroomDefense
                 }
 
                 targetInRange.Health -= GetMushroomDamage(mushroom.Level);
+                SpawnMushroomLaser(mushroom.Renderer.transform.position, targetInRange.Renderer.transform.position);
                 mushroom.AttackCooldown = GetMushroomAttackInterval(mushroom.Level);
                 ResetMushroomCombatVisual(mushroom);
                 if (targetInRange.Health <= 0f) KillEnemy(targetInRange);
@@ -1200,6 +1215,62 @@ namespace MushroomDefense
             }
         }
 
+        private void SpawnMushroomLaser(Vector3 fromWorld, Vector3 toWorld)
+        {
+            if (_mushroomLaserMaterial == null) return;
+
+            var laserObject = new GameObject("MushroomLaser");
+            var line = laserObject.AddComponent<LineRenderer>();
+            line.positionCount = 2;
+            line.useWorldSpace = true;
+            var start = fromWorld + Vector3.up * 0.2f;
+            var end = toWorld + Vector3.up * 0.2f;
+            line.SetPosition(0, start);
+            line.SetPosition(1, start);
+            line.startWidth = MushroomLaserWidth;
+            line.endWidth = MushroomLaserWidth;
+            line.numCapVertices = 4;
+            line.material = _mushroomLaserMaterial;
+            line.sortingOrder = 8;
+            line.startColor = MushroomLaserColor;
+            line.endColor = MushroomLaserColor;
+
+            _mushroomLasers.Add(new MushroomLaserData
+            {
+                Line = line,
+                Remaining = MushroomLaserLifetime,
+                Elapsed = 0f,
+                StartPosition = start,
+                EndPosition = end
+            });
+        }
+
+        private void TickMushroomLasers(float deltaTime)
+        {
+            for (var i = _mushroomLasers.Count - 1; i >= 0; i--)
+            {
+                var laser = _mushroomLasers[i];
+                laser.Remaining -= deltaTime;
+                laser.Elapsed += deltaTime;
+
+                if (laser.Line == null || laser.Remaining <= 0f)
+                {
+                    if (laser.Line != null) Destroy(laser.Line.gameObject);
+                    _mushroomLasers.RemoveAt(i);
+                    continue;
+                }
+
+                var travelT = Mathf.Clamp01(laser.Elapsed / MushroomLaserTravelDuration);
+                laser.Line.SetPosition(0, laser.StartPosition);
+                laser.Line.SetPosition(1, Vector3.Lerp(laser.StartPosition, laser.EndPosition, travelT));
+
+                var alpha = Mathf.Clamp01(laser.Remaining / MushroomLaserLifetime);
+                var color = new Color(MushroomLaserColor.r, MushroomLaserColor.g, MushroomLaserColor.b, alpha);
+                laser.Line.startColor = color;
+                laser.Line.endColor = color;
+            }
+        }
+
         private bool TrySpendCurrency(int amount)
         {
             if (_currency < amount)
@@ -1720,6 +1791,15 @@ namespace MushroomDefense
             public float Elapsed;
             public float RiseDuration;
             public float FadeDuration;
+        }
+
+        private sealed class MushroomLaserData
+        {
+            public LineRenderer Line;
+            public float Remaining;
+            public float Elapsed;
+            public Vector3 StartPosition;
+            public Vector3 EndPosition;
         }
     }
 }
