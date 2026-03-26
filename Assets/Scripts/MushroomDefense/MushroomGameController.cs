@@ -25,6 +25,7 @@ namespace MushroomDefense
         private const float LaserSfxVolume = 0.62f;
         private const float MushroomHitSfxVolume = 0.55f;
         private const float MushroomIdleSqueakSfxVolume = 0.38f;
+        private const float MushroomCurrencySfxVolume = 0.5f;
         private const float MushroomScale = 0.53f;
         private const float EnemyScale = MushroomScale;
         private const float EnemyAttackRange = 0.85f;
@@ -176,6 +177,7 @@ namespace MushroomDefense
         private AudioClip _laserShotSfxClip;
         private AudioClip _mushroomHitSfxClip;
         private AudioClip _mushroomIdleSqueakSfxClip;
+        private AudioClip _mushroomCurrencySfxClip;
         private AudioSource _musicSource;
         private AudioSource _sfxSource;
         private Sprite[] _mushroomSprites;
@@ -362,6 +364,13 @@ namespace MushroomDefense
                 _mushroomIdleSqueakSfxClip = LoadEditorAudioClip("Assets/Sound/mushroom_idle_squeak.mp3")
                     ?? Resources.Load<AudioClip>("Sound/mushroom_idle_squeak")
                     ?? Resources.Load<AudioClip>("mushroom_idle_squeak");
+            }
+
+            if (_mushroomCurrencySfxClip == null)
+            {
+                _mushroomCurrencySfxClip = LoadEditorAudioClip("Assets/Sound/mushroom_currency_coin.mp3")
+                    ?? Resources.Load<AudioClip>("Sound/mushroom_currency_coin")
+                    ?? Resources.Load<AudioClip>("mushroom_currency_coin");
             }
         }
 
@@ -1328,6 +1337,7 @@ namespace MushroomDefense
             {
                 AddCurrency(mushroom.PendingCurrencyAmount);
                 SpawnCurrencyPopup(mushroom, mushroom.PendingCurrencyAmount);
+                PlayMushroomCurrencySfx();
                 mushroom.CurrencyPopupTriggered = true;
             }
 
@@ -1931,6 +1941,12 @@ namespace MushroomDefense
             if (mushroom == null || mushroom.Level > 2) return;
             if (_sfxSource == null || _mushroomIdleSqueakSfxClip == null) return;
             _sfxSource.PlayOneShot(_mushroomIdleSqueakSfxClip, MushroomIdleSqueakSfxVolume);
+        }
+
+        private void PlayMushroomCurrencySfx()
+        {
+            if (_sfxSource == null || _mushroomCurrencySfxClip == null) return;
+            _sfxSource.PlayOneShot(_mushroomCurrencySfxClip, MushroomCurrencySfxVolume);
         }
 
         private void RefreshUi()
