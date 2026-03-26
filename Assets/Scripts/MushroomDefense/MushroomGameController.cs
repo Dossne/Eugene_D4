@@ -109,11 +109,14 @@ namespace MushroomDefense
         private readonly float[] _mushroomIdleMaxDelay = { 3.0f, 4.0f, 3.35f, 2.9f };
         private readonly float[] _mushroomIdleIntensity = { 1f, 0.72f, 0.45f, 0.32f };
 
-        private readonly float[] _enemyMaxHp = { 20f, 40f, 70f };
+        private readonly float[] _enemyMaxHp = { 80f, 160f, 280f };
         private readonly float[] _enemyDamage = { 4f, 7f, 11f };
         private readonly float[] _enemyAttackInterval = { 1.2f, 1.0f, 0.8f };
         private readonly float[] _enemyMoveSpeed = { 1.0f, 0.8f, 0.6f };
         private readonly int[] _enemyReward = { 8, 14, 24 };
+        private readonly float[] _enemyHpMultiplierByType = { 0.9f, 1f, 1.2f };
+        private readonly float[] _enemyDamageMultiplierByType = { 0.9f, 1f, 1.2f };
+        private readonly float[] _enemyAttackIntervalMultiplierByType = { 1.05f, 1f, 0.9f };
 
         private readonly List<MushroomData> _mushrooms = new List<MushroomData>();
         private readonly List<EnemyData> _enemies = new List<EnemyData>();
@@ -154,6 +157,7 @@ namespace MushroomDefense
         private float _gridWorldHeight;
 
         private enum SelectionType { None, EmptyCell, Mushroom }
+        private enum EnemyType { Mosquito = 0, Tick = 1, Hare = 2 }
         private SelectionType _selectionType;
         private CellData _selectedCell;
         private MushroomData _selectedMushroom;
@@ -784,7 +788,7 @@ namespace MushroomDefense
                 enemy.IsAttackLeapActive = false;
                 enemy.AttackLeapTime = 0f;
                 enemy.AttackLeapDamageApplied = false;
-                enemy.AttackCooldown = GetEnemyAttackInterval(enemy.Level);
+                enemy.AttackCooldown = GetEnemyAttackInterval(enemy);
             }
         }
 
@@ -793,7 +797,7 @@ namespace MushroomDefense
             enemy.AttackLeapDamageApplied = true;
             if (enemy.Target == null || enemy.Target.Health <= 0f) return;
 
-            var damage = GetEnemyDamage(enemy.Level);
+            var damage = GetEnemyDamage(enemy);
             enemy.Target.Health -= damage;
             SpawnMushroomDamagePopup(enemy.Target, damage);
             if (enemy.Target.Health <= 0f) KillMushroom(enemy.Target);
@@ -851,12 +855,25 @@ namespace MushroomDefense
         private void SpawnEnemy(int level)
         {
             var spriteSetRoll = Random.value;
+            EnemyType enemyType;
             Sprite sprite;
-            if (spriteSetRoll < 0.34f) sprite = _tickSprites[level - 1];
-            else if (spriteSetRoll < 0.67f) sprite = _mosquitoSprites[level - 1];
-            else sprite = _hareSprites[level - 1];
+            if (spriteSetRoll < 0.34f)
+            {
+                enemyType = EnemyType.Mosquito;
+                sprite = _mosquitoSprites[level - 1];
+            }
+            else if (spriteSetRoll < 0.67f)
+            {
+                enemyType = EnemyType.Tick;
+                sprite = _tickSprites[level - 1];
+            }
+            else
+            {
+                enemyType = EnemyType.Hare;
+                sprite = _hareSprites[level - 1];
+            }
 
-            var enemyObject = new GameObject($"Enemy_L{level}");
+            var enemyObject = new GameObject($"Enemy_{enemyType}_L{level}");
             var renderer = enemyObject.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
             renderer.sortingOrder = 4;
@@ -872,8 +889,9 @@ namespace MushroomDefense
 
             var enemy = new EnemyData
             {
+                Type = enemyType,
                 Level = level,
-                Health = GetEnemyMaxHp(level),
+                Health = GetEnemyMaxHp(level) * GetEnemyHpMultiplier(enemyType),
                 WorldPosition = position,
                 Renderer = renderer,
                 HealthBarRoot = healthBarRoot,
@@ -1984,7 +2002,7 @@ namespace MushroomDefense
 
         private void UpdateEnemyBar(EnemyData enemy)
         {
-            var hpRatio = Mathf.Clamp01(enemy.Health / GetEnemyMaxHp(enemy.Level));
+            var hpRatio = Mathf.Clamp01(enemy.Health / GetEnemyMaxHp(enemy));
             enemy.HealthBar.transform.localScale = new Vector3(Mathf.Max(0.02f, hpRatio), enemy.HealthBar.transform.localScale.y, 1f);
         }
 
@@ -2006,6 +2024,12 @@ namespace MushroomDefense
         private float GetEnemyDamage(int level) => _enemyDamage[level - 1];
         private float GetEnemyAttackInterval(int level) => _enemyAttackInterval[level - 1];
         private float GetEnemyMoveSpeed(int level) => _enemyMoveSpeed[level - 1];
+        private float GetEnemyMaxHp(EnemyData enemy) => GetEnemyMaxHp(enemy.Level) * GetEnemyHpMultiplier(enemy.Type);
+        private float GetEnemyDamage(EnemyData enemy) => GetEnemyDamage(enemy.Level) * GetEnemyDamageMultiplier(enemy.Type);
+        private float GetEnemyAttackInterval(EnemyData enemy) => GetEnemyAttackInterval(enemy.Level) * GetEnemyAttackIntervalMultiplier(enemy.Type);
+        private float GetEnemyHpMultiplier(EnemyType type) => _enemyHpMultiplierByType[(int)type];
+        private float GetEnemyDamageMultiplier(EnemyType type) => _enemyDamageMultiplierByType[(int)type];
+        private float GetEnemyAttackIntervalMultiplier(EnemyType type) => _enemyAttackIntervalMultiplierByType[(int)type];
 
         private static Sprite CreateSolidSprite()
         {
@@ -2067,6 +2091,7 @@ namespace MushroomDefense
 
         private sealed class EnemyData
         {
+            public EnemyType Type;
             public int Level;
             public float Health;
             public float AttackCooldown;
