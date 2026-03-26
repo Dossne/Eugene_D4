@@ -45,6 +45,9 @@ namespace MushroomDefense
         private const float CurrencyPanelContentScale = 1f;
         private const float CurrencyIconTextSpacing = 14f;
         private const float CurrencyIconSizeFactor = 0.62f;
+        private const float CurrencyPopupStartOffsetY = 0.45f;
+        private const float CurrencyPopupIconTextSpacing = 7f;
+        private const float CurrencyPopupRiseHeight = 1.1f;
         private const float WavePanelWidth = 270f;
         private const float WavePanelHeight = 90f;
         private const float WavePanelTextScale = 0.9f;
@@ -73,6 +76,7 @@ namespace MushroomDefense
 
         private readonly List<MushroomData> _mushrooms = new List<MushroomData>();
         private readonly List<EnemyData> _enemies = new List<EnemyData>();
+        private readonly List<CurrencyPopupData> _currencyPopups = new List<CurrencyPopupData>();
 
         private readonly Dictionary<Collider2D, CellData> _cellByCollider = new Dictionary<Collider2D, CellData>();
         private readonly Dictionary<Collider2D, MushroomData> _mushroomByCollider = new Dictionary<Collider2D, MushroomData>();
@@ -155,6 +159,7 @@ namespace MushroomDefense
             TickMushrooms(Time.deltaTime);
             TickEnemies(Time.deltaTime);
             TickWave(Time.deltaTime);
+            TickCurrencyPopups(Time.deltaTime);
 
             if (_waveInProgress && _mushrooms.Count == 0)
             {
@@ -527,7 +532,9 @@ namespace MushroomDefense
                 if (mushroom.CurrencyTimer >= interval)
                 {
                     mushroom.CurrencyTimer -= interval;
-                    AddCurrency(GetMushroomCurrencyAmount(mushroom.Level));
+                    var generatedAmount = GetMushroomCurrencyAmount(mushroom.Level);
+                    AddCurrency(generatedAmount);
+                    SpawnCurrencyPopup(mushroom, generatedAmount);
                 }
 
                 if (_enemies.Count == 0)
@@ -751,6 +758,108 @@ namespace MushroomDefense
 
         private void HarvestMushroomClick(MushroomData mushroom) => AddCurrency(GetMushroomCurrencyAmount(mushroom.Level));
         private void AddCurrency(int amount) => _currency += amount;
+
+        private void SpawnCurrencyPopup(MushroomData mushroom, int amount)
+        {
+            if (mushroom == null || mushroom.Renderer == null || _canvas == null || _mainCamera == null) return;
+
+            var popupRoot = new GameObject("CurrencyPopup");
+            popupRoot.transform.SetParent(_canvas.transform, false);
+            var popupRect = popupRoot.AddComponent<RectTransform>();
+            popupRect.anchorMin = new Vector2(0.5f, 0.5f);
+            popupRect.anchorMax = new Vector2(0.5f, 0.5f);
+            popupRect.pivot = new Vector2(0.5f, 0.5f);
+            popupRect.sizeDelta = new Vector2(220f, 72f);
+
+            var amountText = CreateText("Amount", new Vector2(0.5f, 0.5f), Vector2.zero, TextAnchor.MiddleRight, 30, popupRoot.transform);
+            amountText.text = $"+{amount}";
+            amountText.color = new Color(1f, 0.98f, 0.78f, 1f);
+            amountText.resizeTextForBestFit = true;
+            amountText.resizeTextMinSize = 14;
+            amountText.resizeTextMaxSize = 40;
+            amountText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            amountText.verticalOverflow = VerticalWrapMode.Truncate;
+
+            var textRect = amountText.rectTransform;
+            textRect.anchorMin = new Vector2(0.5f, 0.5f);
+            textRect.anchorMax = new Vector2(0.5f, 0.5f);
+            textRect.pivot = new Vector2(1f, 0.5f);
+            textRect.anchoredPosition = new Vector2(-CurrencyPopupIconTextSpacing * 0.5f, 0f);
+            textRect.sizeDelta = new Vector2(130f, 64f);
+
+            var iconObject = new GameObject("Icon");
+            iconObject.transform.SetParent(popupRoot.transform, false);
+            var iconRect = iconObject.AddComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+            iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+            iconRect.pivot = new Vector2(0f, 0.5f);
+            iconRect.anchoredPosition = new Vector2(CurrencyPopupIconTextSpacing * 0.5f, 0f);
+            iconRect.sizeDelta = new Vector2(38f, 38f);
+
+            var iconImage = iconObject.AddComponent<Image>();
+            iconImage.sprite = _coinSprite ?? _fallbackSprite;
+            iconImage.preserveAspect = true;
+            iconImage.color = Color.white;
+
+            _currencyPopups.Add(new CurrencyPopupData
+            {
+                RootRect = popupRect,
+                AmountText = amountText,
+                Icon = iconImage,
+                StartWorldPosition = (Vector2)mushroom.Renderer.transform.position + Vector2.up * CurrencyPopupStartOffsetY,
+                RiseDuration = 0.28f,
+                FadeDuration = 0.45f
+            });
+        }
+
+        private void TickCurrencyPopups(float deltaTime)
+        {
+            if (_currencyPopups.Count == 0 || _canvas == null || _mainCamera == null) return;
+
+            var canvasRect = _canvas.GetComponent<RectTransform>();
+            for (var i = _currencyPopups.Count - 1; i >= 0; i--)
+            {
+                var popup = _currencyPopups[i];
+                popup.Elapsed += deltaTime;
+
+                var riseT = popup.RiseDuration <= 0f ? 1f : Mathf.Clamp01(popup.Elapsed / popup.RiseDuration);
+                var yOffset = Mathf.SmoothStep(0f, 1f, riseT) * CurrencyPopupRiseHeight;
+                var worldPos = popup.StartWorldPosition + Vector2.up * yOffset;
+                var screenPos = _mainCamera.WorldToScreenPoint(worldPos);
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screenPos, null, out var localPoint);
+                popup.RootRect.anchoredPosition = localPoint;
+
+                var alpha = 1f;
+                if (popup.Elapsed > popup.RiseDuration)
+                {
+                    var fadeT = popup.FadeDuration <= 0f ? 1f : Mathf.Clamp01((popup.Elapsed - popup.RiseDuration) / popup.FadeDuration);
+                    alpha = 1f - fadeT;
+                }
+
+                SetCurrencyPopupAlpha(popup, alpha);
+
+                if (popup.Elapsed >= popup.RiseDuration + popup.FadeDuration)
+                {
+                    if (popup.RootRect != null) Destroy(popup.RootRect.gameObject);
+                    _currencyPopups.RemoveAt(i);
+                }
+            }
+        }
+
+        private static void SetCurrencyPopupAlpha(CurrencyPopupData popup, float alpha)
+        {
+            if (popup.AmountText != null)
+            {
+                var color = popup.AmountText.color;
+                popup.AmountText.color = new Color(color.r, color.g, color.b, alpha);
+            }
+
+            if (popup.Icon != null)
+            {
+                var color = popup.Icon.color;
+                popup.Icon.color = new Color(color.r, color.g, color.b, alpha);
+            }
+        }
 
         private bool TrySpendCurrency(int amount)
         {
@@ -1243,6 +1352,17 @@ namespace MushroomDefense
             public MushroomData Target;
             public GameObject HealthBarRoot;
             public SpriteRenderer HealthBar;
+        }
+
+        private sealed class CurrencyPopupData
+        {
+            public RectTransform RootRect;
+            public Text AmountText;
+            public Image Icon;
+            public Vector2 StartWorldPosition;
+            public float Elapsed;
+            public float RiseDuration;
+            public float FadeDuration;
         }
     }
 }
