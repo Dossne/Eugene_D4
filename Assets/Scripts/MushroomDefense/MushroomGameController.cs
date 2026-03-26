@@ -669,6 +669,7 @@ namespace MushroomDefense
 
                 enemy.AttackCooldown -= deltaTime;
                 var toTarget = enemy.Target.WorldPosition - enemy.WorldPosition;
+                UpdateEnemyFacing(enemy, toTarget);
                 var distance = toTarget.magnitude;
 
                 if (distance > 0.2f)
@@ -687,6 +688,15 @@ namespace MushroomDefense
 
                 UpdateEnemyBar(enemy);
             }
+        }
+
+        private static void UpdateEnemyFacing(EnemyData enemy, Vector2 toTarget)
+        {
+            if (enemy?.Renderer == null) return;
+            if (Mathf.Abs(toTarget.x) < 0.001f) return;
+
+            // Source sprites face left by default. Flip when target is to the right.
+            enemy.Renderer.flipX = toTarget.x > 0f;
         }
 
         private void TickWave(float deltaTime)
