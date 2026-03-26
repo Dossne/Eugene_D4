@@ -23,6 +23,7 @@ namespace MushroomDefense
         private const float EnemyWaveDamageStepMultiplier = 0.16f;
         private const float MusicVolume = 0.225f;
         private const float LaserSfxVolume = 0.62f;
+        private const float MushroomHitSfxVolume = 0.55f;
         private const float MushroomScale = 0.53f;
         private const float EnemyScale = MushroomScale;
         private const float EnemyAttackRange = 0.85f;
@@ -172,6 +173,7 @@ namespace MushroomDefense
         private AudioClip _idleMusicClip;
         private AudioClip _battleMusicClip;
         private AudioClip _laserShotSfxClip;
+        private AudioClip _mushroomHitSfxClip;
         private AudioSource _musicSource;
         private AudioSource _sfxSource;
         private Sprite[] _mushroomSprites;
@@ -344,6 +346,13 @@ namespace MushroomDefense
                 _laserShotSfxClip = LoadEditorAudioClip("Assets/Sound/laser_shot.mp3")
                     ?? Resources.Load<AudioClip>("Sound/laser_shot")
                     ?? Resources.Load<AudioClip>("laser_shot");
+            }
+
+            if (_mushroomHitSfxClip == null)
+            {
+                _mushroomHitSfxClip = LoadEditorAudioClip("Assets/Sound/mushroom_hit_wood.mp3")
+                    ?? Resources.Load<AudioClip>("Sound/mushroom_hit_wood")
+                    ?? Resources.Load<AudioClip>("mushroom_hit_wood");
             }
         }
 
@@ -868,6 +877,7 @@ namespace MushroomDefense
 
             var damage = GetEnemyDamage(enemy);
             enemy.Target.Health -= damage;
+            PlayMushroomHitSfx();
             SpawnMushroomDamagePopup(enemy.Target, damage);
             if (enemy.Target.Health <= 0f) KillMushroom(enemy.Target);
         }
@@ -1898,6 +1908,12 @@ namespace MushroomDefense
         {
             if (_sfxSource == null || _laserShotSfxClip == null) return;
             _sfxSource.PlayOneShot(_laserShotSfxClip, LaserSfxVolume);
+        }
+
+        private void PlayMushroomHitSfx()
+        {
+            if (_sfxSource == null || _mushroomHitSfxClip == null) return;
+            _sfxSource.PlayOneShot(_mushroomHitSfxClip, MushroomHitSfxVolume);
         }
 
         private void RefreshUi()
