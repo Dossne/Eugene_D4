@@ -18,6 +18,10 @@ namespace MushroomDefense
         private const float GridWidthScreenFraction = 0.6f;
         private const float WaveDelaySeconds = 30f;
         private const int MaxWaves = 10;
+        private const float EnemyWaveHpBaseMultiplier = 0.8f;
+        private const float EnemyWaveHpStepMultiplier = 0.18f;
+        private const float EnemyWaveDamageBaseMultiplier = 0.9f;
+        private const float EnemyWaveDamageStepMultiplier = 0.1f;
         private const float MushroomScale = 0.53f;
         private const float EnemyScale = MushroomScale;
         private const float EnemyAttackRange = 0.85f;
@@ -865,8 +869,8 @@ namespace MushroomDefense
             _currentWave = waveIndex;
             _waveInProgress = true;
 
-            var enemyCount = 3 + waveIndex * 2;
-            var maxLevel = Mathf.Clamp(1 + (waveIndex - 1) / 4, 1, 3);
+            var enemyCount = waveIndex == 1 ? 3 : 3 + waveIndex * 2 + Mathf.Max(0, waveIndex - 3);
+            var maxLevel = Mathf.Clamp(1 + (waveIndex - 1) / 3, 1, 3);
 
             for (var i = 0; i < enemyCount; i++)
             {
@@ -917,6 +921,7 @@ namespace MushroomDefense
                 Type = enemyType,
                 Level = level,
                 Health = GetEnemyMaxHp(enemyType, level),
+                WaveIndex = _currentWave,
                 WorldPosition = position,
                 Renderer = renderer,
                 HealthBarRoot = healthBarRoot,
@@ -1003,6 +1008,8 @@ namespace MushroomDefense
             var price = _upgradeCostByLevel[_selectedMushroom.Level];
             if (!TrySpendCurrency(price)) return;
 
+            var oldMaxHp = GetMushroomMaxHp(_selectedMushroom.Level);
+            var hpRatio = oldMaxHp > 0.01f ? Mathf.Clamp01(_selectedMushroom.Health / oldMaxHp) : 1f;
             _selectedMushroom.Level++;
             _selectedMushroom.Renderer.sprite = _mushroomSprites[_selectedMushroom.Level - 1];
             var mushroomVisualPos = GetMushroomVisualPosition(_selectedMushroom.Cell);
@@ -1013,7 +1020,7 @@ namespace MushroomDefense
             _selectedMushroom.Renderer.transform.localScale = _selectedMushroom.DefaultScale;
             _selectedMushroom.Renderer.flipX = _selectedMushroom.BaseFlipX;
             _selectedMushroom.NextIdleDelay = GetRandomMushroomIdleDelay(_selectedMushroom.Level);
-            _selectedMushroom.Health = GetMushroomMaxHp(_selectedMushroom.Level);
+            _selectedMushroom.Health = GetMushroomMaxHp(_selectedMushroom.Level) * hpRatio;
             _selectedMushroom.Renderer.gameObject.name = $"Mushroom_L{_selectedMushroom.Level}";
             UpdateMushroomBars(_selectedMushroom);
         }
@@ -2045,8 +2052,8 @@ namespace MushroomDefense
         private float GetMushroomBarsPivotYOffset(int level) => _mushroomBarsPivotYOffset[level - 1];
         private float GetMushroomLaserStartYOffset(int level) => _mushroomLaserStartYOffset[level - 1];
 
-        private float GetEnemyMaxHp(EnemyData enemy) => GetEnemyMaxHp(enemy.Type, enemy.Level);
-        private float GetEnemyDamage(EnemyData enemy) => GetEnemyDamage(enemy.Type, enemy.Level);
+        private float GetEnemyMaxHp(EnemyData enemy) => GetEnemyMaxHp(enemy.Type, enemy.Level) * GetEnemyWaveHpMultiplier(enemy.WaveIndex);
+        private float GetEnemyDamage(EnemyData enemy) => GetEnemyDamage(enemy.Type, enemy.Level) * GetEnemyWaveDamageMultiplier(enemy.WaveIndex);
         private float GetEnemyAttackInterval(EnemyData enemy) => GetEnemyAttackInterval(enemy.Type, enemy.Level);
         private float GetEnemyMoveSpeed(EnemyData enemy) => GetEnemyMoveSpeed(enemy.Type, enemy.Level);
         private int GetEnemyReward(EnemyData enemy) => GetEnemyReward(enemy.Type, enemy.Level);
@@ -2055,6 +2062,17 @@ namespace MushroomDefense
         private float GetEnemyAttackInterval(EnemyType type, int level) => _enemyAttackIntervalByTypeAndLevel[(int)type, Mathf.Clamp(level - 1, 0, 2)];
         private float GetEnemyMoveSpeed(EnemyType type, int level) => _enemyMoveSpeedByTypeAndLevel[(int)type, Mathf.Clamp(level - 1, 0, 2)];
         private int GetEnemyReward(EnemyType type, int level) => _enemyRewardByTypeAndLevel[(int)type, Mathf.Clamp(level - 1, 0, 2)];
+        private float GetEnemyWaveHpMultiplier(int waveIndex)
+        {
+            var wave = Mathf.Max(1, waveIndex);
+            return EnemyWaveHpBaseMultiplier + (wave - 1) * EnemyWaveHpStepMultiplier;
+        }
+
+        private float GetEnemyWaveDamageMultiplier(int waveIndex)
+        {
+            var wave = Mathf.Max(1, waveIndex);
+            return EnemyWaveDamageBaseMultiplier + (wave - 1) * EnemyWaveDamageStepMultiplier;
+        }
 
         private static Sprite CreateSolidSprite()
         {
@@ -2118,6 +2136,7 @@ namespace MushroomDefense
         {
             public EnemyType Type;
             public int Level;
+            public int WaveIndex;
             public float Health;
             public float AttackCooldown;
             public Vector2 WorldPosition;
