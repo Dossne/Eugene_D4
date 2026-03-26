@@ -21,7 +21,8 @@ namespace MushroomDefense
         private const float EnemyWaveHpStepMultiplier = 0.28f;
         private const float EnemyWaveDamageBaseMultiplier = 0.8f;
         private const float EnemyWaveDamageStepMultiplier = 0.16f;
-        private const float MusicVolume = 0.45f;
+        private const float MusicVolume = 0.225f;
+        private const float LaserSfxVolume = 0.62f;
         private const float MushroomScale = 0.53f;
         private const float EnemyScale = MushroomScale;
         private const float EnemyAttackRange = 0.85f;
@@ -170,7 +171,9 @@ namespace MushroomDefense
         private Material _mushroomLaserMaterial;
         private AudioClip _idleMusicClip;
         private AudioClip _battleMusicClip;
+        private AudioClip _laserShotSfxClip;
         private AudioSource _musicSource;
+        private AudioSource _sfxSource;
         private Sprite[] _mushroomSprites;
         private Sprite[] _tickSprites;
         private Sprite[] _mosquitoSprites;
@@ -229,6 +232,7 @@ namespace MushroomDefense
 
             EnsureEventSystem();
             EnsureMusicSource();
+            EnsureSfxSource();
             LoadSprites();
             BuildWorld();
             BuildUi();
@@ -333,6 +337,13 @@ namespace MushroomDefense
                 _battleMusicClip = LoadEditorAudioClip("Assets/Sound/battle.mp3")
                     ?? Resources.Load<AudioClip>("Sound/battle")
                     ?? Resources.Load<AudioClip>("battle");
+            }
+
+            if (_laserShotSfxClip == null)
+            {
+                _laserShotSfxClip = LoadEditorAudioClip("Assets/Sound/laser_shot.mp3")
+                    ?? Resources.Load<AudioClip>("Sound/laser_shot")
+                    ?? Resources.Load<AudioClip>("laser_shot");
             }
         }
 
@@ -742,6 +753,7 @@ namespace MushroomDefense
                 var laserStart = mushroom.Renderer.transform.position + Vector3.up * GetMushroomLaserStartYOffset(mushroom.Level);
                 var laserTarget = targetInRange.Renderer.transform.position + Vector3.up * 0.2f;
                 SpawnMushroomLaser(laserStart, laserTarget);
+                PlayMushroomLaserSfx();
                 SpawnEnemyDamagePopup(targetInRange, damage);
                 mushroom.AttackCooldown = GetMushroomAttackInterval(mushroom.Level);
                 ResetMushroomCombatVisual(mushroom);
@@ -1547,6 +1559,7 @@ namespace MushroomDefense
                 if (mushroom?.Renderer == null) continue;
                 var start = mushroom.Renderer.transform.position + Vector3.up * GetMushroomLaserStartYOffset(mushroom.Level);
                 SpawnMushroomLaser(start, topRightWorld);
+                PlayMushroomLaserSfx();
             }
         }
 
@@ -1833,6 +1846,7 @@ namespace MushroomDefense
 
             EnsureEventSystem();
             EnsureMusicSource();
+            EnsureSfxSource();
             BuildWorld();
             BuildUi();
             RefreshUi();
@@ -1847,6 +1861,15 @@ namespace MushroomDefense
             _musicSource.playOnAwake = false;
             _musicSource.loop = true;
             _musicSource.volume = MusicVolume;
+        }
+
+        private void EnsureSfxSource()
+        {
+            if (_sfxSource != null) return;
+            _sfxSource = gameObject.AddComponent<AudioSource>();
+            _sfxSource.playOnAwake = false;
+            _sfxSource.loop = false;
+            _sfxSource.volume = LaserSfxVolume;
         }
 
         private void UpdateMusicState(bool force = false)
@@ -1869,6 +1892,12 @@ namespace MushroomDefense
 
             _musicSource.clip = targetClip;
             _musicSource.Play();
+        }
+
+        private void PlayMushroomLaserSfx()
+        {
+            if (_sfxSource == null || _laserShotSfxClip == null) return;
+            _sfxSource.PlayOneShot(_laserShotSfxClip, LaserSfxVolume);
         }
 
         private void RefreshUi()
